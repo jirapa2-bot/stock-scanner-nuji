@@ -1,5 +1,30 @@
-- name: Run Scan Script
-      env:
-        # ชื่อนี้ต้องตรงกับที่เขียนใน if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
-        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-      run: python "App 15.py"
+name: Daily Stock Scanner
+
+on:
+  schedule:
+    - cron: '30 10 * * *' 
+  workflow_dispatch: 
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scan Script
+        env:
+          # แก้ชื่อตรงนี้ให้ตรงกับที่ App 15.py ดักรอไว้ (คือ GOOGLE_APPLICATION_CREDENTIALS)
+          # และใช้ Secret ชื่อ GCP_SERVICE_ACCOUNT ตามที่พี่อ้ำเคยตั้งไว้ครับ
+          GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+        run: python "App 15.py"
