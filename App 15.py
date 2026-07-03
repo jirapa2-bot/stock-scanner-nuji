@@ -29,8 +29,8 @@ def save_data_to_sheet(df, sheet_name):
         
     try:
         client = get_gsheet_client() # ใช้ Client เดิมของพี่อ้ำ
-        FAN_ID = "ใส่_ID_ไฟล์ของแฟน_ตรงนี้"
-    sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
         
         # เพิ่มข้อมูลต่อท้าย (Append) เท่านั้น ห้าม update ห้าม clear
         # วิธีนี้ปลอดภัยที่สุด ข้อมูลเดิมจะอยู่ครบ
@@ -47,8 +47,8 @@ def load_data(sheet_name):
     try:
         client = get_gsheet_client()
         # เปลี่ยนจาก 'TradingPlan' เป็นตัวแปร sheet_name ที่รับเข้ามา
-        FAN_ID = "ใส่_ID_ไฟล์ของแฟน_ตรงนี้"
-    sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
         data = sheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
