@@ -20,4 +20,4 @@ jobs:
         env:
           GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
           SHEET_ID: ${{ secrets.SHEET_ID }}
-        run: python update_stock.py
+        run: python App 15.py
