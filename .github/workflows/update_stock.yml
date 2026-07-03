@@ -21,7 +21,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
+      - name: Create secrets.toml
+        run: |
+          mkdir -p .streamlit
+          echo "[gspread]" > .streamlit/secrets.toml
+          echo 'gcp_service_account = """${{ secrets.GCP_SERVICE_ACCOUNT }}"""' >> .streamlit/secrets.toml
+        
       - name: Run Scan Script
         env:
           # สำคัญ: ต้องเป็นชื่อเดียวกับที่ตั้งไว้ใน Secrets ของแฟน
