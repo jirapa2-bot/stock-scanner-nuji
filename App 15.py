@@ -20,65 +20,7 @@ from datetime import datetime
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
 
-###################
-# Def TEFEX #
-###################
-# --- CONFIGURATION ---
-# ค่า IM ของ SET50 Index Futures ต่อ 1 สัญญา (อัปเดต 1 กรกฎาคม 2026)
-# พี่อ้ำสามารถปรับเปลี่ยนค่านี้ได้ตามประกาศจาก TFO/TCH
-IM_PER_CONTRACT = 13300 
-# ---------------------
-def update_trade_close(spreadsheet_id, trade_id, close_price, date_close):
-    client = get_gsheet_client()
-    sheet = client.open_by_key(spreadsheet_id).worksheet('TFEX_History')
-    
-    # ดึงข้อมูลทั้งหมดมาค้นหา Row
-    records = sheet.get_all_records()
-    df = pd.DataFrame(records)
-    
-    # สมมติว่ามีคอลัมน์ 'Trade_ID' ที่เป็นตัวระบุแถว (พี่อ้ำต้องมี ID นี้ใน Sheet นะครับ)
-    row_index = df.index[df['Trade_ID'] == trade_id].tolist()[0] + 2 # +2 เพราะ GSheet เริ่มแถวที่ 1 และหัวตารางอยู่แถว 1
-    
-    # คำนวณกำไร
-    open_price = df.loc[row_index-2, 'Open_Price']
-    size = df.loc[row_index-2, 'Size']
-    Status = df.loc[row_index-2, 'Status']
-    
-    if Status.upper() == 'LONG':
-        net_profit = (close_price - open_price) * size * 200
-    else:
-        net_profit = (open_price - close_price) * size * 200
-        
-    # อัปเดตลง Google Sheet
-    sheet.update_cell(row_index, df.columns.get_loc('Close_Price') + 1, close_price)
-    sheet.update_cell(row_index, df.columns.get_loc('Date_Close') + 1, date_close)
-    sheet.update_cell(row_index, df.columns.get_loc('Net_Profit') + 1, net_profit)
-    
-    return True
-    
-def calculate_tfex_result(entry, close, size, comm, Status):
-    # Multiplier ของ S50 ปกติคือ 200
-    multiplier = 200
-    
-    # คำนวณจุดที่ได้ (Points)
-    points = (close - entry) if Status == "Long" else (entry - close)
-    
-    # คำนวณกำไร/ขาดทุนก่อนหักคอม
-    realized = points * size * multiplier
-    
-    # กำไรสุทธิ
-    net_profit = realized - comm
-    
-    # สถานะ Win/Lose
-    win_lose = "Win" if net_profit > 0 else "Lose"
-    
-    return {
-        "Realized": round(realized, 2),
-        "Net_Profit": round(net_profit, 2),
-        "Win_Lose": win_lose,
-        "Points": round(points, 2)
-    }
-    
+
 def save_data_to_sheet(df, sheet_name):
     # ป้องกันการบันทึกถ้า df ว่างเปล่า เพื่อไม่ให้ข้อมูลหาย
     if df.empty:
@@ -87,7 +29,8 @@ def save_data_to_sheet(df, sheet_name):
         
     try:
         client = get_gsheet_client() # ใช้ Client เดิมของพี่อ้ำ
-        sheet = client.open('MyStockData').worksheet(sheet_name)
+        FAN_ID = "ใส่_ID_ไฟล์ของแฟน_ตรงนี้"
+    sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
         
         # เพิ่มข้อมูลต่อท้าย (Append) เท่านั้น ห้าม update ห้าม clear
         # วิธีนี้ปลอดภัยที่สุด ข้อมูลเดิมจะอยู่ครบ
@@ -104,7 +47,8 @@ def load_data(sheet_name):
     try:
         client = get_gsheet_client()
         # เปลี่ยนจาก 'TradingPlan' เป็นตัวแปร sheet_name ที่รับเข้ามา
-        sheet = client.open('MyStockData').worksheet(sheet_name) 
+        FAN_ID = "ใส่_ID_ไฟล์ของแฟน_ตรงนี้"
+    sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
         data = sheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
@@ -115,25 +59,11 @@ def load_data(sheet_name):
 def get_cached_stock_info(ticker):
     stock = yf.Ticker(ticker)
     return stock.info  
-    
-#def clear_and_save_data(df, sheet_name):
-   # client = get_gsheet_client()
-   # sheet = client.open('MyStockData').worksheet('TradingPlan')
-    
-    # ต้องสั่ง clear() ก่อนเสมอ เพื่อลบข้อมูลเก่าทั้งหมดทิ้ง (แถวที่ลบไปจะหายไป)
-    #sheet.clear()
-    
-    # ส่ง Header + ข้อมูล
-   # data_to_save = [df.columns.tolist()] + df.fillna("").values.tolist()
-    
-    # ระบุ 'A1' เพื่อให้เริ่มวางที่หัวตาราง
-    #sheet.update('A1', data_to_save)
-    #return True
 
 def save_to_gsheet(df, sheet_name='StockData'):
     client = get_gsheet_client()
-    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
-    sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
+    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+    sheet = client.open_by_key(FAN_ID).worksheet('StockData')
     
     # --- จุดแก้ไขสำคัญ: ล้างข้อมูลก่อนส่ง ---
     # 1. แทนที่ค่าที่เป็น NaN หรือ None ให้เป็นค่าว่าง ""
@@ -186,7 +116,8 @@ def save_journal():
             
     # บันทึกลง Google Sheet
     client = get_gsheet_client()
-    sheet = client.open('MyStockData').worksheet('JournalData')
+    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+    sheet = client.open_by_key(FAN_ID).worksheet('JournalData')
     
     # ล้างข้อมูลเดิมและเขียนใหม่ (Header + Data)
     sheet.clear()
@@ -195,7 +126,8 @@ def save_journal():
 def load_journal():
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('JournalData')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('JournalData')
         data = sheet.get_all_records()
         st.session_state.journal_data = data
     except Exception as e:
@@ -208,7 +140,8 @@ def save_portfolio():
             st.session_state.my_portfolio = []
             
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('PortfolioData')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('PortfolioData')
         
         sheet.clear() # ล้างข้อมูลเก่า
         if st.session_state.my_portfolio:
@@ -226,7 +159,8 @@ def save_portfolio():
 def load_portfolio():
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('PortfolioData')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('PortfolioData')
         data = sheet.get_all_records()
         
         # ใส่บรรทัดนี้ไว้เช็ค (รันแล้วลองดูว่ามันแสดงข้อมูลอะไรออกมาที่หน้าเว็บไหม)
@@ -253,8 +187,8 @@ def get_current_portfolio_value():
 
 def update_stock_data(df):
     client = get_gsheet_client()
-    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
-    sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
+    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+    sheet = client.open_by_key(FAN_ID).worksheet('StockData')
     
     # 1. เตรียมข้อมูล: แปลง Header และข้อมูลเป็น list
     data_to_update = [df.columns.values.tolist()] + df.values.tolist()
@@ -279,7 +213,8 @@ def save_cash_balance(amount):
 def load_cash_balance():
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
         val = sheet.acell('D2').value
         if val is None or val == "":
             st.warning("เซลล์ D2 ว่างเปล่า ระบบใช้ 100,000 เป็นค่าเริ่มต้น")
@@ -292,7 +227,8 @@ def load_cash_balance():
 def log_cash_transaction(date, trans_type, amount, note):
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
         
         # เตรียมข้อมูลที่จะบันทึก (Date, Type, Amount, Note)
         row_data = [str(date), trans_type, amount, note]
@@ -306,7 +242,8 @@ def log_cash_transaction(date, trans_type, amount, note):
 def load_total_cash_balance():
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
+        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
         df = pd.DataFrame(sheet.get_all_records())
         
         if not df.empty:
@@ -600,7 +537,8 @@ with tab_stock:
     def load_from_gsheet():
         try:
             client = get_gsheet_client()
-            sheet = client.open('MyStockData').worksheet('StockData')
+            FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+            sheet = client.open_by_key(FAN_ID).worksheet('StockData')
             data = sheet.get_all_records()
             
             if not data:
@@ -774,8 +712,8 @@ with tab_stock:
             try:
                 # ดึงข้อมูลจาก Sheet ที่เราบันทึกไว้ในโหมด GitHub
                 client = get_gsheet_client()
-                spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
-                sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
+                FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
+                sheet = client.open_by_key(FAN_ID).worksheet('StockData')
                 data = sheet.get_all_records()
                 
                 if data:
@@ -2201,246 +2139,3 @@ with tab_stock:
     ###################################################################
     # # --- ฟังก์ชัน Main tap stock Finish---
     ###################################################################
-# 2. ส่วน TFEX
-with tab_tfex:
-    st.subheader("📝 ระบบเทรด TFEX")
-    
-    # 1. โหลดข้อมูล
-    tfex_df = load_data("TFEX_History") 
-    cash_df = load_data("Cash_Flow")
-    
-    # 2. กรองข้อมูลเฉพาะรายการที่ปิดสถานะแล้ว (Realized PnL)
-    # สมมติว่าถ้ายังไม่ปิด Close_Price จะเป็น 0 หรือเป็นค่าว่าง
-    # หากคอลัมน์พี่อ้ำชื่ออื่น (เช่น 'Status' ที่บอกว่า 'Open') ให้เปลี่ยนในบรรทัดถัดไปครับ
-    closed_trades = tfex_df[tfex_df['Close_Price'] > 0] if not tfex_df.empty and 'Close_Price' in tfex_df.columns else tfex_df
-    total_pnl = closed_trades['Net_Profit'].sum() if not closed_trades.empty and 'Net_Profit' in closed_trades.columns else 0
-    
-    # 3. คำนวณเงินต้นสุทธิ
-    # ใช้ .astype(str).str.lower() เพื่อป้องกันปัญหาตัวอักษรพิมพ์เล็ก/ใหญ่
-    total_deposit = cash_df[cash_df['Type'].astype(str).str.lower() == 'deposit']['Amount'].sum() if not cash_df.empty else 0
-    total_withdraw = cash_df[cash_df['Type'].astype(str).str.lower() == 'withdraw']['Amount'].sum() if not cash_df.empty else 0
-    net_capital = total_deposit - total_withdraw
-    
-    # 4. คำนวณพอร์ต (ใช้ Realized PnL)
-    net_worth = net_capital + total_pnl
-    growth_pct = (total_pnl / net_capital * 100) if net_capital > 0 else 0
-    
-    # แสดง Dashboard
-    c1, c2, c3 = st.columns(3)
-    c1.metric("มูลค่าพอร์ตสุทธิ (Cash Basis)", f"{net_worth:,.2f} บาท")
-    c2.metric("กำไรรวมสุทธิ (Realized)", f"{total_pnl:,.2f} บาท")
-    c3.metric("การเติบโต", f"{growth_pct:.2f} %")
-    st.divider()
-
-    # --- เริ่มแถวที่ 2: Performance Metrics ---
-    st.subheader("📊 Performance Monitor")
-    
-    # 1. สร้าง Filter ช่วงเวลา
-    period_options = {"3 เดือน": 90, "6 เดือน": 180, "1 ปี": 365, "ทั้งหมด": 9999}
-    selected_period = st.radio("เลือกช่วงเวลา:", list(period_options.keys()), horizontal=True, key="perf_filter")
-    
-    # 2. กรองข้อมูลเฉพาะแถวที่ปิดสถานะแล้ว และตามช่วงเวลาที่เลือก
-    # แปลง Date_Close เป็น datetime เพื่อคำนวณระยะเวลา
-    perf_df = closed_trades.copy() # ใช้ closed_trades ที่เรากรองไว้แล้วก่อนหน้านี้
-    perf_df['Date_Close'] = pd.to_datetime(perf_df['Date_Close'])
-    
-    days_ago = period_options[selected_period]
-    if days_ago != 9999:
-        cutoff_date = pd.Timestamp.now() - pd.Timedelta(days=days_ago)
-        perf_df = perf_df[perf_df['Date_Close'] >= cutoff_date]
-
-    # 3. คำนวณค่าต่างๆ
-    total_trades = len(perf_df)
-    win_trades = len(perf_df[perf_df['Net_Profit'] > 0])
-    win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
-    
-    avg_win = perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].mean() if win_trades > 0 else 0
-    avg_loss = perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().mean() if (total_trades - win_trades) > 0 else 0
-    rr_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
-    
-    gross_profit = perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].sum()
-    gross_loss = perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().sum()
-    profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0)
-    
-    expectancy = (win_rate/100 * avg_win) - ((1 - win_rate/100) * avg_loss)
-
-    # 4. แสดงผล
-    p1, p2, p3, p4 = st.columns(4)
-    p1.metric("Win Rate", f"{win_rate:.1f}%")
-    p2.metric("R:R Ratio", f"{rr_ratio:.2f}")
-    p3.metric("Profit Factor", f"{profit_factor:.2f}")
-    p4.metric("Expectancy", f"{expectancy:,.0f}")
-    
-    # 3. สร้าง 3 Tabs
-    sub_tfex_input, sub_tfex_close, sub_tfex_cash, sub_tfex_history = st.tabs([
-    "➕ บันทึกเทรดใหม่", 
-    "🏁 ปิดสถานะเทรด", 
-    "➕ บันทึกเติม/ถอนเงิน", 
-    "📜 ประวัติและ Portfolio"
-    ])
-    with sub_tfex_input:
-        st.subheader("🛡 คำนวณขนาดสัญญา (Position Size)")
-        
-        c1, c2 = st.columns(2)
-        risk_amount = c1.number_input("เงินที่ยอมขาดทุนได้ (บาท)", value=2000)
-        stop_loss_points = c2.number_input("ระยะห่างจุดตัดขาดทุน (จุด)", value=2.0)
-        
-        # ใช้ตัวแปร Global ที่เราตั้งค่าไว้
-        im_per_contract = IM_PER_CONTRACT 
-        
-        # คำนวณสัญญา
-        contract_by_risk = risk_amount / (stop_loss_points * 200)
-        contract_by_margin = net_worth / im_per_contract # net_worth ดึงมาจาก Dashboard
-        
-        max_contracts = min(int(contract_by_risk), int(contract_by_margin))
-        
-        # แสดงผลแบบมืออาชีพ
-        st.info(f"📋 ข้อมูลการคำนวณ:")
-        st.write(f"- ค่า IM ปัจจุบัน: {im_per_contract:,.0f} บาท/สัญญา")
-        st.write(f"- เงินต้นรวม (Net Worth): {net_worth:,.0f} บาท")
-        
-        if max_contracts <= 0:
-            st.error("⚠️ เงินในพอร์ตไม่เพียงพอที่จะเปิดสัญญาภายใต้เงื่อนไขความเสี่ยงนี้")
-        else:
-            st.success(f"✅ **สรุป: คุณควรเปิดสถานะไม่เกิน {max_contracts} สัญญา**")
-        
-        # 1. แสดงรายการที่ถืออยู่ (Open Positions)
-        st.subheader("📊 สถานะที่ถืออยู่ (Open Positions)")
-        # สมมติว่าในตาราง History ของพี่อ้ำมีคอลัมน์ 'Close_Price' ที่เป็น 0 หรือว่าง สำหรับรายการที่ยังไม่ปิด
-        # ตรงนี้ต้องปรับให้ตรงกับคอลัมน์ใน Google Sheet ของพี่อ้ำนะครับ
-        open_positions = tfex_df[tfex_df['Close_Price'] == 0] 
-        
-        if not open_positions.empty:
-            st.dataframe(open_positions[['Date_Open', 'Series', 'Status', 'Size', 'Open_Price']], use_container_width=True)
-        else:
-            st.info("ไม่มีรายการที่ถืออยู่ในปัจจุบัน")
-
-        st.divider()
-        
-        with st.form("tfex_entry_form"):
-            col1, col2, col3 = st.columns(3)
-            with col1:
-                date_open = st.date_input("วันที่เปิด")
-                series = st.text_input("Series (เช่น S50Z25)")
-                Status = st.selectbox("สถานะ:", ["Long", "Short"])
-            with col2:
-                entry = st.number_input("ราคา Open:", format="%.2f")
-                size = st.number_input("จำนวนสัญญา:", min_value=1, value=1)
-                # เพิ่มช่อง Trade_ID ให้พี่อ้ำกรอกเอง หรือจะให้ระบบรันเลขให้อัตโนมัติก็ได้ครับ
-                trade_id = st.text_input("Trade ID (ตั้งชื่อให้ไม่ซ้ำ):") 
-            with col3:
-                reason = st.text_area("เหตุผลที่เข้าเทรด:")
-            
-            if st.form_submit_button("เปิดสถานะเทรด"):
-                new_record = {
-                    "Trade_ID": trade_id, # สำคัญมากสำหรับการอัปเดตภายหลัง
-                    "Date_Open": date_open.strftime("%Y-%m-%d"),
-                    "Series": series,
-                    "Status": Status,
-                    "Size": size,
-                    "Open_Price": entry,
-                    "Close_Price": 0, # กำหนดเป็น 0 เพื่อบอกระบบว่ายังถืออยู่
-                    "Net_Profit": 0,  # ยังไม่มีกำไร
-                    "Reason": reason
-                }
-                if save_data_to_sheet(pd.DataFrame([new_record]), "TFEX_History"):
-                    st.success("เปิดสถานะเรียบร้อย!")
-                    st.rerun()
-    with sub_tfex_close:
-        st.subheader("🏁 ปิดสถานะเทรด")
-        
-        # ดึงข้อมูลจากฟังก์ชัน load_data โดยตรง
-        tfex_df = load_data("TFEX_History")
-        
-        # กรองเฉพาะรายการที่ยังถืออยู่ (Open Position)
-        # หมายเหตุ: ต้องมั่นใจว่าใน Google Sheet รายการที่ยังถืออยู่มี Close_Price เป็น 0 หรือว่าง
-        open_trades = tfex_df[tfex_df['Close_Price'] == 0]
-        
-        if not open_trades.empty:
-            # ให้เลือก Trade_ID (พี่อ้ำต้องมี Column นี้ใน Sheet)
-            selected_trade_id = st.selectbox("เลือก Trade ที่ต้องการปิด:", open_trades['Trade_ID'].tolist())
-            
-            # แสดงรายละเอียดออเดอร์เดิมให้เห็นก่อนปิด
-            trade_detail = open_trades[open_trades['Trade_ID'] == selected_trade_id].iloc[0]
-            st.write(f"รายละเอียด: {trade_detail['Status']} {trade_detail['Size']} สัญญาที่ราคา {trade_detail['Open_Price']}")
-            
-            # ฟอร์มกรอกข้อมูลปิดสถานะ
-            close_price = st.number_input("ราคาปิด:", value=0.0, step=0.1)
-            close_date = st.date_input("วันที่ปิด:")
-            
-            if st.button("ยืนยันการปิดสถานะ"):
-                # เรียกใช้ฟังก์ชันที่เราเตรียมไว้
-                update_trade_close(CURRENT_SHEET_ID, selected_trade_id, close_price, str(close_date))
-                st.success("อัปเดตข้อมูลสำเร็จ! ระบบจะคำนวณกำไรให้ทันที")
-                st.rerun() # สั่งรีเฟรชหน้าจอเพื่อให้อัปเดตข้อมูล
-        else:
-            st.info("ไม่มีรายการที่ถือครองอยู่ครับ")
-
-    with sub_tfex_history:
-        st.subheader("📜 ประวัติการเทรดและกำไรสะสม")
-        
-        if not tfex_df.empty and 'Net_Profit' in tfex_df.columns:
-            # 1. จัดเตรียมข้อมูล
-            closed_trades = tfex_df[tfex_df['Close_Price'] > 0].copy()
-            closed_trades['Date_Close'] = pd.to_datetime(closed_trades['Date_Close'])
-            
-            # --- แถวที่ 2: Performance Monitor ---
-            st.divider()
-            st.subheader("📊 Performance Monitor")
-            # เปลี่ยน key ให้ไม่ซ้ำเดิม
-            period_options = {"3 เดือน": 90, "6 เดือน": 180, "1 ปี": 365, "ทั้งหมด": 9999}
-            selected_period = st.radio("เลือกช่วงเวลา:", list(period_options.keys()), horizontal=True, key="tfex_perf_selector")
-            
-            perf_df = closed_trades.copy()
-            days_ago = period_options[selected_period]
-            if days_ago != 9999:
-                cutoff_date = pd.Timestamp.now() - pd.Timedelta(days=days_ago)
-                perf_df = perf_df[perf_df['Date_Close'] >= cutoff_date]
-    
-            # คำนวณ Metric
-            total_trades = len(perf_df)
-            win_rate = (len(perf_df[perf_df['Net_Profit'] > 0]) / total_trades * 100) if total_trades > 0 else 0
-            avg_win = perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].mean() if len(perf_df[perf_df['Net_Profit'] > 0]) > 0 else 0
-            avg_loss = perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().mean() if len(perf_df[perf_df['Net_Profit'] <= 0]) > 0 else 0
-            rr_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
-            profit_factor = (perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].sum() / perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().sum()) if perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().sum() > 0 else 0
-    
-            p1, p2, p3 = st.columns(3)
-            p1.metric("Win Rate", f"{win_rate:.1f}%")
-            p2.metric("R:R Ratio", f"{rr_ratio:.2f}")
-            p3.metric("Profit Factor", f"{profit_factor:.2f}")
-    
-            # --- แถวที่ 3: สรุปผลรายเดือนแบบ Combo Chart & Table ---
-            st.divider()
-            st.subheader("🗓 สรุปผลรายเดือน")
-            
-            # คำนวณรายเดือน
-            monthly_perf = closed_trades.groupby(closed_trades['Date_Close'].dt.to_period('M'))['Net_Profit'].sum().reset_index()
-            monthly_perf['Month'] = monthly_perf['Date_Close'].dt.strftime('%Y-%m')
-            monthly_perf['Cumulative_Pct'] = (monthly_perf['Net_Profit'].cumsum() / net_capital) * 100
-            
-            # วาดกราฟ Plotly Combo
-            fig = make_subplots(specs=[[{"secondary_y": True}]])
-            fig.add_trace(go.Bar(x=monthly_perf['Month'], y=monthly_perf['Net_Profit'], name="กำไร/ขาดทุน"), secondary_y=False)
-            fig.add_trace(go.Scatter(x=monthly_perf['Month'], y=monthly_perf['Cumulative_Pct'], name="% สะสม", mode='lines+markers', line=dict(color='#FFA500', width=3)), secondary_y=True)
-            
-            fig.update_layout(title_text="Monthly Performance", height=400, margin=dict(l=20, r=20, t=40, b=20))
-            st.plotly_chart(fig, use_container_width=True)
-            
-            # ตารางสรุป
-            monthly_df = monthly_perf[['Month', 'Net_Profit', 'Cumulative_Pct']]
-            monthly_df.columns = ['เดือน', 'กำไรสุทธิ (บาท)', '% สะสม']
-            st.dataframe(
-                monthly_df.style.format({'กำไรสุทธิ (บาท)': '{:,.2f}', '% สะสม': '{:.2f} %'})
-                .background_gradient(subset=['กำไรสุทธิ (บาท)'], cmap='RdYlGn'),
-                use_container_width=True
-            )
-            
-            # --- ตารางประวัติเต็ม ---
-            st.divider()
-            st.subheader("📜 ประวัติเทรดทั้งหมด")
-            tfex_df['Cumulative_Profit'] = tfex_df['Net_Profit'].cumsum()
-            st.dataframe(tfex_df, use_container_width=True)
-            
-        else:
-            st.warning("ยังไม่มีข้อมูลรายการเทรดที่ปิดสถานะแล้วครับ")
