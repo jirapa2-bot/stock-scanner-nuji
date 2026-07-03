@@ -1,36 +1,5 @@
-name: Daily Stock Scanner
-
-on:
-  schedule:
-    - cron: '30 10 * * *' 
-  workflow_dispatch: 
-
-jobs:
-  build:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
-
-      - name: Set up Python
-        uses: actions/setup-python@v4
-        with:
-          python-version: '3.9'
-
-      - name: Install dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
-      - name: Create secrets.toml
-        run: |
-          mkdir -p .streamlit
-          echo "[gspread]" > .streamlit/secrets.toml
-          echo 'gcp_service_account = """${{ secrets.GCP_SERVICE_ACCOUNT }}"""' >> .streamlit/secrets.toml
-        
-      - name: Run Scan Script
-        env:
-          # สำคัญ: ต้องเป็นชื่อเดียวกับที่ตั้งไว้ใน Secrets ของแฟน
-          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
-        run: |
-          # บรรทัดนี้ไม่มีคำว่า run: ซ้ำข้างใน
-          python "App 15.py"
+- name: Run Scan Script
+      env:
+        # ชื่อนี้ต้องตรงกับที่เขียนใน if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
+        GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+      run: python "App 15.py"
