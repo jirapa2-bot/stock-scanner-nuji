@@ -1364,8 +1364,9 @@ def main():
                     st.markdown("##### 🔔 การกระจายตัวกำไร/ขาดทุน (%)")
                     fig, ax = plt.subplots(figsize=(10, 4))
                     
+                    # ใช้ bins='auto' แทน binwidth=1 เพื่อป้องกัน Error
                     sns.histplot(df_filtered['Profit_Pct'], kde=True, color='#3498db', 
-                                 binwidth=1, edgecolor='none', alpha=0.3, ax=ax)
+                                 bins='auto', edgecolor='none', alpha=0.3, ax=ax)
                     
                     # เส้นค่าเฉลี่ย
                     mean_val = df_filtered['Profit_Pct'].mean()
