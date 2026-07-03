@@ -1,23 +1,32 @@
-name: Auto Update Stock Data
+name: Daily Stock Scanner
 
 on:
   schedule:
-    - cron: '0 18 * * *' # ตั้งเวลาให้รันทุกวัน เวลา 18:00 น.
-  workflow_dispatch:      # กดปุ่มรันเองได้จากหน้าเว็บ GitHub
+    - cron: '30 10 * * *' 
+  workflow_dispatch: 
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v3
+
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
+
       - name: Install dependencies
-        run: pip install pandas gspread oauth2client yfinance
-      - name: Run script
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Run Scan Script
         env:
-          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-          SHEET_ID: ${{ secrets.SHEET_ID }}
-        run: python App 15.py
+          # สำคัญ: ต้องเป็นชื่อเดียวกับที่ตั้งไว้ใน Secrets ของแฟน
+          GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
+        run: |
+          # ตรงนี้คือจุดสำคัญ: ถ้าใน App 15.py ของพี่อ้ำมีคำสั่งดึงข้อมูล
+          # แฟนต้องมั่นใจว่า App 15.py รันแล้วมันไปดึงข้อมูลแล้วจบการทำงานได้
+          python App 15.py
