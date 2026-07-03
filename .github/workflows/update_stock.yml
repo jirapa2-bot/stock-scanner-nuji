@@ -27,6 +27,5 @@ jobs:
           # สำคัญ: ต้องเป็นชื่อเดียวกับที่ตั้งไว้ใน Secrets ของแฟน
           GOOGLE_APPLICATION_CREDENTIALS_JSON: ${{ secrets.GOOGLE_APPLICATION_CREDENTIALS }}
         run: |
-          # ตรงนี้คือจุดสำคัญ: ถ้าใน App 15.py ของพี่อ้ำมีคำสั่งดึงข้อมูล
-          # แฟนต้องมั่นใจว่า App 15.py รันแล้วมันไปดึงข้อมูลแล้วจบการทำงานได้
-          run: python "App 15.py"
+          # บรรทัดนี้ไม่มีคำว่า run: ซ้ำข้างใน
+          python "App 15.py"
