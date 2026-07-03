@@ -19,8 +19,7 @@ from datetime import datetime
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
-
-
+  
 def save_data_to_sheet(df, sheet_name):
     # ป้องกันการบันทึกถ้า df ว่างเปล่า เพื่อไม่ให้ข้อมูลหาย
     if df.empty:
@@ -29,8 +28,7 @@ def save_data_to_sheet(df, sheet_name):
         
     try:
         client = get_gsheet_client() # ใช้ Client เดิมของพี่อ้ำ
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
+        sheet = client.open('MyStockData').worksheet(sheet_name)
         
         # เพิ่มข้อมูลต่อท้าย (Append) เท่านั้น ห้าม update ห้าม clear
         # วิธีนี้ปลอดภัยที่สุด ข้อมูลเดิมจะอยู่ครบ
@@ -47,8 +45,7 @@ def load_data(sheet_name):
     try:
         client = get_gsheet_client()
         # เปลี่ยนจาก 'TradingPlan' เป็นตัวแปร sheet_name ที่รับเข้ามา
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('sheet_name')
+        sheet = client.open('MyStockData').worksheet(sheet_name) 
         data = sheet.get_all_records()
         return pd.DataFrame(data)
     except Exception as e:
@@ -59,11 +56,25 @@ def load_data(sheet_name):
 def get_cached_stock_info(ticker):
     stock = yf.Ticker(ticker)
     return stock.info  
+    
+#def clear_and_save_data(df, sheet_name):
+   # client = get_gsheet_client()
+   # sheet = client.open('MyStockData').worksheet('TradingPlan')
+    
+    # ต้องสั่ง clear() ก่อนเสมอ เพื่อลบข้อมูลเก่าทั้งหมดทิ้ง (แถวที่ลบไปจะหายไป)
+    #sheet.clear()
+    
+    # ส่ง Header + ข้อมูล
+   # data_to_save = [df.columns.tolist()] + df.fillna("").values.tolist()
+    
+    # ระบุ 'A1' เพื่อให้เริ่มวางที่หัวตาราง
+    #sheet.update('A1', data_to_save)
+    #return True
 
 def save_to_gsheet(df, sheet_name='StockData'):
     client = get_gsheet_client()
-    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-    sheet = client.open_by_key(FAN_ID).worksheet('StockData')
+    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
+    sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
     
     # --- จุดแก้ไขสำคัญ: ล้างข้อมูลก่อนส่ง ---
     # 1. แทนที่ค่าที่เป็น NaN หรือ None ให้เป็นค่าว่าง ""
@@ -88,25 +99,18 @@ def get_gsheet_client():
         # 1. เช็คจาก GitHub Actions (Environment Variable)
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             creds_dict = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
-        
         # 2. เช็คจาก Streamlit Cloud (Secrets)
         else:
-            # ดึงค่าออกมาก่อน
-            val = st.secrets["gcp_service_account"]
+            # ใช้ dict() เพื่อแปลง st.secrets เป็น dictionary ธรรมดา
+            creds_dict = dict(st.secrets["gcp_service_account"])
             
-            # เช็คว่าถ้าเป็น string (JSON) ให้แปลงเป็น dict ก่อน
-            if isinstance(val, str):
-                creds_dict = json.loads(val)
-            else:
-                creds_dict = json.loads(st.secrets["gcp_service_account"])
-        
-        # สร้าง Credentials
+        # สร้าง Credentials ด้วยวิธีมาตรฐานที่รองรับทั้งคู่
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
         
     except Exception as e:
-        # พิมพ์ Error แบบละเอียดเพื่อให้เรา Debug ได้ง่ายขึ้น
-        st.error(f"Error ในการเชื่อมต่อ Google Sheets: {e}")
+        # ถ้าพัง ให้ print ออกมาดูใน Log ของ GitHub
+        print(f"Error ในการเชื่อมต่อ Google Sheets: {e}")
         raise e
 # =============================================================
 # 2. ฟังก์ชัน Load/Save ข้อมูล
@@ -123,8 +127,7 @@ def save_journal():
             
     # บันทึกลง Google Sheet
     client = get_gsheet_client()
-    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-    sheet = client.open_by_key(FAN_ID).worksheet('JournalData')
+    sheet = client.open('MyStockData').worksheet('JournalData')
     
     # ล้างข้อมูลเดิมและเขียนใหม่ (Header + Data)
     sheet.clear()
@@ -133,8 +136,7 @@ def save_journal():
 def load_journal():
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('JournalData')
+        sheet = client.open('MyStockData').worksheet('JournalData')
         data = sheet.get_all_records()
         st.session_state.journal_data = data
     except Exception as e:
@@ -147,8 +149,7 @@ def save_portfolio():
             st.session_state.my_portfolio = []
             
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('PortfolioData')
+        sheet = client.open('MyStockData').worksheet('PortfolioData')
         
         sheet.clear() # ล้างข้อมูลเก่า
         if st.session_state.my_portfolio:
@@ -166,8 +167,7 @@ def save_portfolio():
 def load_portfolio():
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('PortfolioData')
+        sheet = client.open('MyStockData').worksheet('PortfolioData')
         data = sheet.get_all_records()
         
         # ใส่บรรทัดนี้ไว้เช็ค (รันแล้วลองดูว่ามันแสดงข้อมูลอะไรออกมาที่หน้าเว็บไหม)
@@ -194,8 +194,8 @@ def get_current_portfolio_value():
 
 def update_stock_data(df):
     client = get_gsheet_client()
-    FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-    sheet = client.open_by_key(FAN_ID).worksheet('StockData')
+    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
+    sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
     
     # 1. เตรียมข้อมูล: แปลง Header และข้อมูลเป็น list
     data_to_update = [df.columns.values.tolist()] + df.values.tolist()
@@ -220,8 +220,7 @@ def save_cash_balance(amount):
 def load_cash_balance():
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
+        sheet = client.open('MyStockData').worksheet('CashFlow')
         val = sheet.acell('D2').value
         if val is None or val == "":
             st.warning("เซลล์ D2 ว่างเปล่า ระบบใช้ 100,000 เป็นค่าเริ่มต้น")
@@ -234,8 +233,7 @@ def load_cash_balance():
 def log_cash_transaction(date, trans_type, amount, note):
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
+        sheet = client.open('MyStockData').worksheet('CashFlow')
         
         # เตรียมข้อมูลที่จะบันทึก (Date, Type, Amount, Note)
         row_data = [str(date), trans_type, amount, note]
@@ -249,8 +247,7 @@ def log_cash_transaction(date, trans_type, amount, note):
 def load_total_cash_balance():
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('CashFlow')
+        sheet = client.open('MyStockData').worksheet('CashFlow')
         df = pd.DataFrame(sheet.get_all_records())
         
         if not df.empty:
@@ -540,8 +537,7 @@ SET100_TICKERS = [
 def load_from_gsheet():
     try:
         client = get_gsheet_client()
-        FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-        sheet = client.open_by_key(FAN_ID).worksheet('StockData')
+        sheet = client.open('MyStockData').worksheet('StockData')
         data = sheet.get_all_records()
         
         if not data:
@@ -715,8 +711,8 @@ def main():
         try:
             # ดึงข้อมูลจาก Sheet ที่เราบันทึกไว้ในโหมด GitHub
             client = get_gsheet_client()
-            FAN_ID = "1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM"
-            sheet = client.open_by_key(FAN_ID).worksheet('StockData')
+            spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
+            sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
             data = sheet.get_all_records()
             
             if data:
@@ -1371,9 +1367,8 @@ def main():
                     st.markdown("##### 🔔 การกระจายตัวกำไร/ขาดทุน (%)")
                     fig, ax = plt.subplots(figsize=(10, 4))
                     
-                    # ใช้ bins='auto' แทน binwidth=1 เพื่อป้องกัน Error
                     sns.histplot(df_filtered['Profit_Pct'], kde=True, color='#3498db', 
-                                 bins='auto', edgecolor='none', alpha=0.3, ax=ax)
+                                 binwidth=1, edgecolor='none', alpha=0.3, ax=ax)
                     
                     # เส้นค่าเฉลี่ย
                     mean_val = df_filtered['Profit_Pct'].mean()
