@@ -98,7 +98,7 @@ def get_gsheet_client():
             if isinstance(val, str):
                 creds_dict = json.loads(val)
             else:
-                creds_dict = dict(val)
+                creds_dict = json.loads(st.secrets["gcp_service_account"])
         
         # สร้าง Credentials
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
