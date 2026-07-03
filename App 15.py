@@ -132,7 +132,7 @@ def get_cached_stock_info(ticker):
 
 def save_to_gsheet(df, sheet_name='StockData'):
     client = get_gsheet_client()
-    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
     sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
     
     # --- จุดแก้ไขสำคัญ: ล้างข้อมูลก่อนส่ง ---
@@ -253,7 +253,7 @@ def get_current_portfolio_value():
 
 def update_stock_data(df):
     client = get_gsheet_client()
-    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
     sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
     
     # 1. เตรียมข้อมูล: แปลง Header และข้อมูลเป็น list
@@ -774,7 +774,7 @@ with tab_stock:
             try:
                 # ดึงข้อมูลจาก Sheet ที่เราบันทึกไว้ในโหมด GitHub
                 client = get_gsheet_client()
-                spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
                 sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
                 data = sheet.get_all_records()
                 
