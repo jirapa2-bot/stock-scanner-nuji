@@ -1,0 +1,23 @@
+name: Auto Update Stock Data
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # ตั้งเวลาให้รันทุกวัน เวลา 18:00 น.
+  workflow_dispatch:      # กดปุ่มรันเองได้จากหน้าเว็บ GitHub
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: pip install pandas gspread oauth2client yfinance
+      - name: Run script
+        env:
+          GCP_SERVICE_ACCOUNT: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+          SHEET_ID: ${{ secrets.SHEET_ID }}
+        run: python update_stock.py
