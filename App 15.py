@@ -19,7 +19,29 @@ from datetime import datetime
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
-  
+def clear_and_save_data(df, sheet_name):
+    try:
+        client = get_gsheet_client()
+        sheet = client.open('MyStockData').worksheet('TradingPlan')
+        
+        # ล้างข้อมูลเดิม
+        sheet.clear()
+        
+        # เลือกเฉพาะคอลัมน์หลักที่เราใช้ในตาราง เพื่อความชัวร์
+        cols = ['Ticker', 'Entry_Price', 'แนวรับ', 'แนวต้าน', 'ราคาตลาด', 'Stop_Loss', 'Take_Profit', 'ห่างจาก_SL(%)', 'สถานะ', 'Alert_Date', 'Timestamp', 'Image_URL']
+        # กรองเอาเฉพาะคอลัมน์ที่มีอยู่จริง
+        save_df = df[[c for c in cols if c in df.columns]]
+        
+        # เตรียมข้อมูล Header + Data
+        data_to_save = [save_df.columns.tolist()] + save_df.fillna("").values.tolist()
+        
+        # บันทึก
+        sheet.update('A1', data_to_save)
+        return True
+    except Exception as e:
+        st.error(f"เกิดข้อผิดพลาด: {e}")
+        return False
+      
 def save_data_to_sheet(df, sheet_name):
     # ป้องกันการบันทึกถ้า df ว่างเปล่า เพื่อไม่ให้ข้อมูลหาย
     if df.empty:
@@ -392,15 +414,7 @@ def get_latest_prices(tickers):
 from datetime import datetime
 
 def check_alerts(row):
-    from datetime import datetime
-    today = datetime.now().strftime("%Y-%m-%d")
-    last_alert = str(row.get('Alert_Date', ''))
-    
-    # ถ้าวันนี้แจ้งเตือนไปแล้ว ให้คืนค่าสถานะเดิมหรือข้อความเดิม
-    if last_alert == today:
-        return row.get('สถานะ', 'แจ้งเตือนวันนี้แล้ว')
-
-    # จัดการเรื่องค่าว่างหรือข้อมูลที่ไม่ใช่ตัวเลข
+    # 1. จัดการข้อมูลให้เป็นตัวเลขที่นำไปคำนวณได้จริง
     try:
         price = float(row['ราคาตลาด'])
         sl = float(row['Stop_Loss']) if row['Stop_Loss'] else 0.0
@@ -410,25 +424,27 @@ def check_alerts(row):
     except:
         return "ปกติ"
     
-    msg = ""
+    if price <= 0:
+        return "ไม่มีข้อมูลราคา"
+
+    # 2. คำนวณลำดับความสำคัญ (Priority) ของสถานะ
+    # เราเช็ค SL/TP ก่อน เพราะสำคัญกว่าแนวรับต้าน
     
-    # เงื่อนไขเช็คระยะ 1% (ใกล้แนวรับ/ต้าน)
+    # กรณีถึงเป้าหมายหรือจุดคัท (ราคาแตะแล้ว)
+    if sl > 0 and price <= sl:
+        return f"⚠️ ถึงจุด Stop Loss {sl:.2f}"
+    if tp > 0 and price >= tp:
+        return f"🎉 ถึงจุด Take Profit {tp:.2f}"
+    
+    # กรณีใกล้เป้าหมาย (ใช้ระยะ 1% เพื่อแจ้งเตือนก่อนถึง)
+    # เช็คแนวรับ/แนวต้าน
     if support > 0 and abs(price - support) / support <= 0.01:
-        msg = f"🔔 ใกล้แนวรับ {support}"
-    elif resistance > 0 and abs(price - resistance) / resistance <= 0.01:
-        msg = f"🔔 ใกล้แนวต้าน {resistance}"
-    # เงื่อนไข SL/TP
-    elif sl > 0 and price <= sl:
-        msg = f"⚠️ ถึงจุด Stop Loss {sl}"
-    elif tp > 0 and price >= tp:
-        msg = f"🎉 ถึงจุด Take Profit {tp}"
+        return f"🔔 ใกล้แนวรับ {support:.2f}"
+    if resistance > 0 and abs(price - resistance) / resistance <= 0.01:
+        return f"🔔 ใกล้แนวต้าน {resistance:.2f}"
     
-    # ถ้ามี msg แสดงว่าเข้าเงื่อนไข ให้คืนค่า msg ออกไปโชว์ในตาราง
-    if msg:
-        return msg
-    
-    # ถ้าไม่มีอะไรผิดปกติ ให้คืนค่าเดิมหรือสถานะปกติ
-    return row.get('สถานะ', 'ปกติ')
+    # ถ้าไม่เข้าเงื่อนไขเลย ให้คืนค่าปกติ
+    return "ปกติ"
 # =============================================================
 # ส่วนเร่ิมต้นของ file
 # =============================================================
@@ -2086,18 +2102,36 @@ def main():
                     st.error("กรุณาระบุชื่อหุ้นครับ!")
                 else:
                     from datetime import datetime
+                    
+                    # 1. สร้าง Dictionary ของหุ้นใหม่
                     new_data = {
                         'Ticker': ticker, 'Entry_Price': entry, 'ราคาตลาด': 0.0,
                         'Stop_Loss': stop_loss, 'แนวรับ': support, 'แนวต้าน': resistance, 
                         'ห่างจาก_SL(%)': 0.0, 'Take_Profit': take_profit,
                         'สถานะ': 'ปกติ', 'Timestamp': datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                        'Image_URL': image_url
+                        'Image_URL': image_url, 'Alert_Date': ''
                     }
-                    if save_trading_plan_exclusive(pd.DataFrame([new_data])):
+                    
+                    # 2. โหลดข้อมูลปัจจุบันจาก Google Sheet ออกมาก่อน
+                    current_df = load_data("TradingPlan")
+                    
+                    # ถ้าตารางว่าง ให้สร้าง DataFrame ใหม่ขึ้นมาเลย
+                    if current_df is None or current_df.empty:
+                        final_df = pd.DataFrame([new_data])
+                    else:
+                        # รวมหุ้นเดิมกับหุ้นใหม่เข้าด้วยกัน
+                        new_df = pd.DataFrame([new_data])
+                        final_df = pd.concat([current_df, new_df], ignore_index=True)
+                        
+                    # 3. บันทึกข้อมูลที่รวมแล้วด้วยฟังก์ชัน clear_and_save_data
+                    # (เพราะฟังก์ชันนี้ลบของเก่าแล้วเขียนทับใหม่ เราจึงต้องส่ง 'ข้อมูลก้อนใหม่' ที่รวมตัวเก่าไปให้)
+                    if clear_and_save_data(final_df, "TradingPlan"):
                         st.success("บันทึกแผนเรียบร้อย!")
                         st.cache_data.clear()
                         st.rerun()
-        
+                    else:
+                        st.error("เกิดข้อผิดพลาดในการบันทึกข้อมูลครับ")
+                                
             # 2. ส่วนตารางแสดงผล (แยกออกมาเป็นอิสระ)
             st.divider()
             st.subheader("📊 ตารางแผนการเทรดของฉัน")
@@ -2127,14 +2161,14 @@ def main():
                     
                 plan_df['ห่างจาก_SL(%)'] = ((plan_df['ราคาตลาด'] - plan_df['Stop_Loss']) / plan_df['ราคาตลาด'] * 100).fillna(0).round(2)
                 plan_df['สถานะ'] = plan_df.apply(check_alerts, axis=1)
-        
+    
             # 3. แสดงตารางและปุ่มบันทึกแก้ไข
             edited_df = st.data_editor(
                 plan_df[cols],
                 column_config={
                     "Ticker": st.column_config.TextColumn("หุ้น", disabled=True),
                     "Entry_Price": st.column_config.NumberColumn("ราคาซื้อ", format="%.2f"),
-                    "แนวรับ": st.column_config.NumberColumn("แนวรับ", format="%.2f"),     
+                    "แนวรับ": st.column_config.NumberColumn("แนวรับ", format="%.2f"),    
                     "แนวต้าน": st.column_config.NumberColumn("แนวต้าน", format="%.2f"),
                     "ราคาตลาด": st.column_config.NumberColumn("ราคาตลาด", format="%.2f", disabled=True),
                     "Stop_Loss": st.column_config.NumberColumn("จุดตัดขาดทุน", format="%.2f"),
@@ -2149,10 +2183,17 @@ def main():
             
             if st.button("💾 บันทึกการแก้ไข"):
                 final_df = edited_df.copy()
+                
+                # --- จุดที่แก้ไข: ล้างค่าสถานะและวันที่ก่อนบันทึกลง Sheet ---
+                # เพื่อให้ทุกครั้งที่โหลดแอปใหม่ สถานะจะถูกคำนวณใหม่ตามค่าปัจจุบัน
+                final_df['สถานะ'] = ""
+                final_df['Alert_Date'] = ""
+                
                 for c in cols:
                     if c not in final_df.columns: final_df[c] = ""
                 
-                if clear_and_save_data(final_df[cols], "TradingPlan"):
+                # ใช้ save_to_gsheet แทน (ตามที่พี่อ้ำคุยไว้ก่อนหน้า)
+                if save_to_gsheet(final_df[cols], "TradingPlan"):
                     st.success("บันทึกและอัปเดตตารางเรียบร้อย!")
                     st.cache_data.clear()
                     st.rerun()
