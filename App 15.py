@@ -56,20 +56,7 @@ def load_data(sheet_name):
 def get_cached_stock_info(ticker):
     stock = yf.Ticker(ticker)
     return stock.info  
-    
-#def clear_and_save_data(df, sheet_name):
-   # client = get_gsheet_client()
-   # sheet = client.open('MyStockData').worksheet('TradingPlan')
-    
-    # ต้องสั่ง clear() ก่อนเสมอ เพื่อลบข้อมูลเก่าทั้งหมดทิ้ง (แถวที่ลบไปจะหายไป)
-    #sheet.clear()
-    
-    # ส่ง Header + ข้อมูล
-   # data_to_save = [df.columns.tolist()] + df.fillna("").values.tolist()
-    
-    # ระบุ 'A1' เพื่อให้เริ่มวางที่หัวตาราง
-    #sheet.update('A1', data_to_save)
-    #return True
+  
 
 def save_to_gsheet(df, sheet_name='StockData'):
     client = get_gsheet_client()
@@ -225,18 +212,29 @@ def save_cash_balance(amount):
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการบันทึกเงินสด: {e}")
 
-def load_cash_balance():
+def load_total_cash_balance():
     try:
         client = get_gsheet_client()
         sheet = client.open('MyStockData').worksheet('CashFlow')
-        val = sheet.acell('D2').value
-        if val is None or val == "":
-            st.warning("เซลล์ D2 ว่างเปล่า ระบบใช้ 100,000 เป็นค่าเริ่มต้น")
-            return 100000.0
-        return float(val)
+        
+        # ดึงข้อมูลทั้งหมด
+        records = sheet.get_all_records()
+        df = pd.DataFrame(records)
+        
+        # ตรวจสอบว่าคอลัมน์ Amount มีอยู่จริง
+        if 'Amount' in df.columns:
+            # 1. แปลงค่าใน Amount ให้เป็นตัวเลข ถ้าเจอข้อความ ให้เปลี่ยนเป็น NaN
+            df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
+            
+            # 2. .dropna() จะลบแถวที่แปลงไม่ได้ (พวกที่มีข้อความ) ออกไป
+            # 3. .sum() จะบวกเฉพาะตัวเลขที่เหลือ
+            total_balance = df['Amount'].dropna().sum()
+            return float(total_balance)
+        
+        return 69102.44 # ยอดเริ่มต้นถ้าหาคอลัมน์ไม่เจอ
     except Exception as e:
-        st.error(f"โหลดเงินสดจาก Sheets ไม่ได้: {e}")
-        return 100000.0 # ถ้าพังจริงๆ ก็ใช้ 100,000 ไปก่อน
+        print(f"DEBUG: Error ในการโหลดเงินสด: {e}")
+        return 69102.44
         
 def log_cash_transaction(date, trans_type, amount, note):
     try:
@@ -251,19 +249,6 @@ def log_cash_transaction(date, trans_type, amount, note):
         st.toast("บันทึกรายการเงินสดเรียบร้อย!", icon="💰")
     except Exception as e:
         st.error(f"บันทึกรายการเงินสดไม่สำเร็จ: {e}")
-        
-def load_total_cash_balance():
-    try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
-        df = pd.DataFrame(sheet.get_all_records())
-        
-        if not df.empty:
-            # รวมยอด Amount ทั้งหมด
-            return float(df['Amount'].sum())
-        return 69102.44 # ถ้าไม่มีข้อมูลให้ใช้ยอดเริ่มต้น
-    except:
-        return 69102.44
         
 # ฟังก์ชัน Load ไฟล์ CSV/Excel (ยังคงใช้ได้เหมือนเดิม)
 def load_data_from_file(uploaded_file):
@@ -1444,7 +1429,7 @@ def main():
             
             # 1. จัดการเงินสด (แก้ไขด้วยตัวเองได้ตลอดเวลา)
             if "cash_balance" not in st.session_state:
-                st.session_state.cash_balance = load_cash_balance()
+                st.session_state.cash_balance = load_total_cash_balance()
                 
             # ส่วนแสดงปุ่มเข้าออกเงินสด 
             with st.expander("💰 บันทึกรายการเงินสดเข้า-ออก"):
@@ -1859,50 +1844,73 @@ def main():
         
         ############################        
         with tab_risk:
-                st.markdown("#### 🚀 ระบบคำนวณ Risk Management & Position Sizing (ตามหลัก Minervini)")
+                st.markdown("#### 🚀 ระบบคำนวณ Risk Management & Position Sizing")
+
+                # 1. ดึงข้อมูลแบบสดๆ เพื่อโชว์สรุปพอร์ตก่อนคำนวณ
+                cash_balance = load_total_cash_balance()
+                market_value = get_total_market_value()
+                total_equity = cash_balance + market_value
                 
-                r_col1, r_col2 = st.columns([1, 1])
-                with r_col1:
-                    total_cap = st.number_input("1. เงินทุนทั้งหมดในพอร์ตของพี่อ้ำ (บาท):", min_value=5000, value=100000, step=5000)
-                    risk_pct = st.slider("2. ความเสี่ยงสูงสุดที่ยอมขาดทุนต่อไม้ (% ของพอร์ต):", min_value=0.25, max_value=3.0, value=1.0, step=0.25, help="ตามหลักสากลแนะนำไม่เกิน 1%")
+                # สรุปภาพรวมให้พี่อ้ำเห็นก่อน
+                col_a, col_b, col_c = st.columns(3)
+                col_a.metric("เงินสดในมือ", f"{cash_balance:,.0f} ฿")
+                col_b.metric("มูลค่าหุ้นในพอร์ต", f"{market_value:,.0f} ฿")
+                col_c.metric("มูลค่าพอร์ตสุทธิ", f"{total_equity:,.0f} ฿")
                 
-                with r_col2:
-                    sl_type = st.selectbox("3. เลือกเกณฑ์จุดตัดขาดทุน (Stop Loss):", [
-                        f"เส้น EMA 10 ({chart_combined['EMA10'].iloc[-1]:.2f} บาท)",
-                        f"เส้น EMA 20 ({chart_combined['EMA20'].iloc[-1]:.2f} บาท)",
-                        "กำหนดเป็นเปอร์เซ็นต์คงที่ (Fixed %)",
-                        "กำหนดราคาคัทด้วยตัวเอง (Manual Price)"
-                    ])
-                    
-                    latest_p = float(latest_price_single)
-                    if "EMA 10" in sl_type:
-                        sl_price = chart_combined['EMA10'].iloc[-1]
-                    elif "EMA 20" in sl_type:
-                        sl_price = chart_combined['EMA20'].iloc[-1]
-                    elif "กำหนดเป็นเปอร์เซ็นต์คงที่" in sl_type:
-                        fixed_sl_pct = st.slider("ระบุ % Stop Loss ที่ต้องการ:", min_value=2.0, max_value=12.0, value=7.0, step=0.5)
-                        sl_price = latest_p * (1 - (fixed_sl_pct / 100))
-                    else:
-                        sl_price = st.number_input("ระบุราคา Stop Loss ที่ต้องการคัท (บาท):", min_value=0.0, value=latest_p * 0.93, step=0.25)
+                st.divider() # ขีดเส้นกั้น
                 
-                # ประมวลผลลัพธ์คุมเสี่ยง
-                max_risk_money = total_cap * (risk_pct / 100)
-                risk_per_share = latest_p - sl_price
-                
-                if risk_per_share <= 0:
-                    st.error("⚠️ ขอบเขตราคาผิดพลาด: ราคา Stop Loss ต้องต่ำกว่าราคาซื้อปัจจุบันครับพี่อ้ำ กรุณาปรับใหม่อีกครั้ง")
-                else:
-                    shares_to_buy = int(max_risk_money / risk_per_share)
-                    total_buy_value = shares_to_buy * latest_p
-                    portfolio_exposure = (total_buy_value / total_cap) * 100
-                    actual_sl_pct = ((latest_p - sl_price) / latest_p) * 100
-                    
-                    st.markdown("##### 📊 ผลลัพธ์หน้าเทรดและขนาดไม้ที่เหมาะสม:")
-                    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
-                    res_col1.metric(label="จำนวนหุ้นที่ควรซื้อ", value=f"{shares_to_buy:,} หุ้น")
-                    res_col2.metric(label="เงินลงทุนไม้ซื้อนี้ (Position Size)", value=f"{total_buy_value:,.2f} บาท", delta=f"{portfolio_exposure:.1f}% ของพอร์ต")
-                    res_col3.metric(label="ตั้ง Stop Loss ที่ราคา", value=f"{sl_price:.2f} บาท", delta=f"-{actual_sl_pct:.2f}%")
-                    res_col4.metric(label="หากแพ้จะเสียเงินสูงสุด", value=f"{max_risk_money:,.2f} บาท", delta="ปลอดภัยตามวินัยเทรด", delta_color="inverse")
+                # 2. ส่วนการคำนวณ
+                # 2. ส่วนการคำนวณ
+        r_col1, r_col2 = st.columns([1, 1])
+        
+        with r_col1:
+            total_cap = st.number_input(
+                "👉 ระบุจำนวนเงินทุนที่ต้องการใช้คำนวณไม้ซื้อนี้ (บาท):", 
+                min_value=1000, 
+                value=int(total_equity), # นี่คือค่าเริ่มต้นที่ดึงมาจากพอร์ตจริง
+                step=1000,
+                help="สามารถลบตัวเลขนี้แล้วพิมพ์จำนวนเงินที่ต้องการใช้ซื้อจริงได้เลยครับ"
+            )
+            risk_pct = st.slider("2. ความเสี่ยงสูงสุดต่อไม้ (% ของพอร์ต):", min_value=0.25, max_value=3.0, value=1.0, step=0.25)
+        
+        with r_col2:
+            latest_p = float(latest_price_single)
+            
+            sl_type = st.selectbox("3. เลือกเกณฑ์จุดตัดขาดทุน (Stop Loss):", [
+                f"เส้น EMA 10 ({chart_combined['EMA10'].iloc[-1]:.2f} บาท)",
+                f"เส้น EMA 20 ({chart_combined['EMA20'].iloc[-1]:.2f} บาท)",
+                "กำหนดเป็นเปอร์เซ็นต์คงที่ (Fixed %)",
+                "กำหนดราคาคัทด้วยตัวเอง (Manual Price)"
+            ])
+            
+            # กำหนดค่า sl_price ตามเงื่อนไขที่เลือก
+            if "EMA 10" in sl_type:
+                sl_price = float(chart_combined['EMA10'].iloc[-1])
+            elif "EMA 20" in sl_type:
+                sl_price = float(chart_combined['EMA20'].iloc[-1])
+            elif "กำหนดเป็นเปอร์เซ็นต์คงที่" in sl_type:
+                fixed_sl_pct = st.slider("ระบุ % Stop Loss ที่ต้องการ:", min_value=2.0, max_value=12.0, value=7.0, step=0.5)
+                sl_price = latest_p * (1 - (fixed_sl_pct / 100))
+            else: # Manual Price
+                sl_price = st.number_input("ระบุราคา Stop Loss (บาท):", min_value=0.0, value=latest_p * 0.93, step=0.25)
+        
+        # 3. คำนวณผลลัพธ์
+        max_risk_money = total_cap * (risk_pct / 100)
+        risk_per_share = latest_p - sl_price
+        
+        # ตรวจสอบก่อนนำไปหาร เพื่อป้องกัน Error
+        if risk_per_share <= 0:
+            st.error("⚠️ ราคา Stop Loss ต้องต่ำกว่าราคาซื้อปัจจุบันครับ!")
+        else:
+            shares_to_buy = int(max_risk_money / risk_per_share)
+            total_buy_value = shares_to_buy * latest_p
+            
+            st.markdown("##### 📊 ผลลัพธ์หน้าเทรดและขนาดไม้ที่เหมาะสม:")
+            res_col1, res_col2, res_col3, res_col4 = st.columns(4)
+            res_col1.metric("จำนวนที่ควรซื้อ", f"{shares_to_buy:,} หุ้น")
+            res_col2.metric("เงินลงทุน (Position Size)", f"{total_buy_value:,.0f} ฿")
+            res_col3.metric("ตั้ง SL ที่ราคา", f"{sl_price:.2f} ฿")
+    res_col4.metric("เสียเงินสูงสุดหากแพ้", f"{max_risk_money:,.0f} ฿")
         #######################          
                 st.markdown("---")
                 # --- 1. ประกาศฟังก์ชันไว้ด้านบน (ห้ามย่อหน้า) ---
