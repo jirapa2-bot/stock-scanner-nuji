@@ -1656,26 +1656,31 @@ def main():
         
         ################# เรียกการคำนวนนับจำนวนวันถือหุ้น #####################
         def calculate_journal_stats(df):
-            # ตรวจสอบว่า df ไม่ว่างเปล่า
             if df.empty:
                 return pd.DataFrame()
-        
-            # 1. บังคับเปลี่ยนชื่อคอลัมน์ให้เป็น String และลบช่องว่าง (เผื่อกรณีชื่อมีช่องว่างเกิน)
+            
+            # 1. จัดการชื่อคอลัมน์
             df.columns = df.columns.str.strip()
-        
-            # 2. บังคับแปลงคอลัมน์ที่เป็นตัวเลข ให้กลายเป็น numeric จริงๆ
-            # ถ้าแปลงไม่ได้ (เช่น มีตัวอักษร) ให้กลายเป็น NaN
+            
+            # 2. แปลงวันที่เป็น datetime
+            # สังเกตชื่อคอลัมน์วันที่ใน Sheet ให้ดีครับ (เช่น 'วันที่ขาย')
+            df['วันที่ขาย'] = pd.to_datetime(df['วันที่ขาย'], errors='coerce')
+            
+            # 3. สร้างคอลัมน์ Year
+            df['Year'] = df['วันที่ขาย'].dt.year.fillna(0).astype(int)
+            
+            # 4. ตั้งค่า Index เป็น Year (เพื่อให้โค้ดที่บรรทัด 1785 เรียกใช้ได้)
+            df = df.set_index('Year')
+            
+            # ... (ทำความสะอาดตัวเลข และคำนวณ ROI เหมือนที่แก้ไปก่อนหน้า) ...
             cols_to_numeric = ['กำไร/ขาดทุน (บาท)', 'ต้นทุน (บาท)']
             for col in cols_to_numeric:
                 if col in df.columns:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
-        
-            # 3. คำนวณ ROI แบบปลอดภัย (ป้องกันการหารด้วย 0 ด้วย .replace(0, np.nan))
+                    
             df['ROI_Percent'] = (df['กำไร/ขาดทุน (บาท)'] / df['ต้นทุน (บาท)'].replace(0, np.nan)) * 100
-            
-            # ถ้ามีค่าที่คำนวณไม่ได้ (NaN) ให้เปลี่ยนเป็น 0
             df['ROI_Percent'] = df['ROI_Percent'].fillna(0)
-        
+            
             return df
                     
             # 3. สรุปผลเป็น % ตามที่พี่อ้ำต้องการ
