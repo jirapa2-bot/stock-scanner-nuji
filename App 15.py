@@ -715,10 +715,12 @@ def main():
         print("GitHub Mode: บันทึกข้อมูลสำเร็จ")
         return 
 
-    # 3. กรณีรันโหมดปกติบน Streamlit Cloud (ดึงข้อมูลจาก Sheet มาแสดง)
+    # 3. กรณีรันโหมดปกติบน Streamlit Cloud
     else:
+        # --- เพิ่มบรรทัดนี้: ประกาศตัวแปรเริ่มต้นเป็น DataFrame ว่าง ---
+        df_all_stocks = pd.DataFrame() 
+        
         try:
-            # ดึงข้อมูลจาก Sheet ที่เราบันทึกไว้ในโหมด GitHub
             client = get_gsheet_client()
             spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
             sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
@@ -730,6 +732,7 @@ def main():
                 st.warning("ยังไม่มีข้อมูลใน Google Sheet")
         except Exception as e:
             st.error(f"ไม่สามารถดึงข้อมูลจาก Google Sheet ได้: {e}")
+            # df_all_stocks จะยังคงเป็น DataFrame ว่างๆ ต่อไป ทำให้ไม่เกิด Error ตอนใช้งานต่อ
     
     # --- กรณีรันผ่านหน้าเว็บ Streamlit ---
     st.title("📈 แอปพลิเคชันวิเคราะห์หุ้นไทย")
