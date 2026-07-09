@@ -24,7 +24,9 @@ jobs:
 
       - name: Run Scan Script
         env:
-          # แก้ชื่อตรงนี้ให้ตรงกับที่ App 15.py ดักรอไว้ (คือ GOOGLE_APPLICATION_CREDENTIALS)
-          # และใช้ Secret ชื่อ GCP_SERVICE_ACCOUNT ตามที่พี่อ้ำเคยตั้งไว้ครับ
+          # ตรวจสอบชื่อ Secret ใน GitHub ให้ตรงกับที่พิมพ์ตรงนี้
           GOOGLE_APPLICATION_CREDENTIALS: ${{ secrets.GCP_SERVICE_ACCOUNT }}
-        run: python "App 15.py"
+        run: |
+          # เพิ่มการเช็คว่ามีไฟล์หรือค่านี้จริงๆ ก่อนรัน
+          python -c "import os; print('Secret check:', 'Exists' if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ else 'Missing')"
+          python "App 15.py"
