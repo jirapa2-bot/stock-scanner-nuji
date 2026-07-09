@@ -1172,7 +1172,15 @@ def main():
             df_scan = pd.DataFrame()
             st.error(f"เกิดข้อผิดพลาดในการเตรียมตาราง: {e}")
 
-        df_scan = filtered_df.copy() if filtered_df is not None else df_all_stocks.copy()
+        # แก้ไขเป็น:
+        if filtered_df is not None:
+            df_scan = filtered_df.copy()
+        elif df_all_stocks is not None:
+            df_scan = df_all_stocks.copy()
+        else:
+            # ถ้าไม่มีข้อมูลเลย ให้สร้าง DataFrame ว่างๆ ไว้แทน เพื่อไม่ให้ Error
+            df_scan = pd.DataFrame() 
+            st.warning("ไม่สามารถโหลดข้อมูลหุ้นได้ กรุณาตรวจสอบการเชื่อมต่อ Google Sheets")
         
         # 2. กรองตาม Strategy ที่เลือก (ถ้ามี)
         if strategy_option == "3 Month High":
