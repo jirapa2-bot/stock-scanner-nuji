@@ -23,12 +23,28 @@ from datetime import datetime
 def load_data(sheet_name):
     try:
         client = get_gsheet_client()
-        # เปลี่ยนจาก 'TradingPlan' เป็นตัวแปร sheet_name ที่รับเข้ามา
-        sheet = client.open('MyStockData').worksheet(sheet_name) 
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
+        spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
+        sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
+        
+        # เปลี่ยนจาก get_all_records() เป็น get_all_values() 
+        # เพื่อดึงข้อมูลมาเป็น List of Lists ก่อน แล้วค่อยสร้าง DataFrame เอง
+        all_values = sheet.get_all_values()
+        
+        if not all_values:
+            return pd.DataFrame()
+            
+        # ใช้แถวแรกเป็น Header
+        header = all_values[0]
+        data = all_values[1:]
+        
+        df = pd.DataFrame(data, columns=header)
+        
+        # ลบแถวที่ว่างเปล่าออก
+        df = df[df[header[0]] != ""]
+        
+        return df
     except Exception as e:
-        st.error(f"โหลดข้อมูล {sheet_name} ไม่สำเร็จ: {e}")
+        st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล {sheet_name}: {e}")
         return pd.DataFrame()
         
 @st.cache_data(ttl=3600) # จำข้อมูลไว้ 1 ชม. ค่อยดึงใหม่
