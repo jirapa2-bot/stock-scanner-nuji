@@ -19,6 +19,7 @@ from datetime import datetime
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
+
 @st.cache_data(ttl=60)
 def load_data(sheet_name):
     try:
@@ -26,22 +27,27 @@ def load_data(sheet_name):
         spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
         sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
         
-        # เปลี่ยนจาก get_all_records() เป็น get_all_values() 
-        # เพื่อดึงข้อมูลมาเป็น List of Lists ก่อน แล้วค่อยสร้าง DataFrame เอง
+        # 1. ดึงข้อมูลดิบทั้งหมด
         all_values = sheet.get_all_values()
         
-        if not all_values:
+        if not all_values or len(all_values) < 2:
             return pd.DataFrame()
             
-        # ใช้แถวแรกเป็น Header
-        header = all_values[0]
+        # 2. แยก Header และ Data
+        header = [str(h).strip() for h in all_values[0]] # ลบช่องว่างในชื่อ Header
         data = all_values[1:]
         
-        df = pd.DataFrame(data, columns=header)
+        # 3. กรองเฉพาะแถวที่มีข้อมูล (ป้องกันแถวว่างที่เป็นปัญหา)
+        # เราจะเช็คว่าแถวนั้นต้องมีคอลัมน์อย่างน้อยเท่ากับจำนวน Header
+        clean_data = [row for row in data if len(row) >= len(header)]
         
-        # ลบแถวที่ว่างเปล่าออก
-        df = df[df[header[0]] != ""]
+        # 4. สร้าง DataFrame
+        df = pd.DataFrame(clean_data, columns=header)
         
+        # 5. ลบแถวที่ไม่มีข้อมูลสำคัญ (เช่น Ticker ว่าง)
+        if 'Ticker' in df.columns:
+            df = df[df['Ticker'].str.strip() != ""]
+            
         return df
     except Exception as e:
         st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล {sheet_name}: {e}")
