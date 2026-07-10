@@ -1256,7 +1256,7 @@ def main():
                 st.info("ยังไม่มีข้อมูลรายการเทรดครับ")
             else:
                 df_journal = pd.DataFrame(st.session_state.journal_data)
-                df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'])
+                df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'], errors='coerce')
                 df_closed = df_journal[df_journal['สถานะ'] == 'Closed (ขายแล้ว)'].copy()
                 
                 if df_closed.empty:
@@ -1828,9 +1828,7 @@ def main():
         # 3. ตารางประวัติ 
         if st.session_state.journal_data:
             df_journal = pd.DataFrame(st.session_state.journal_data)
-            df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'])             
-            # แก้ไข Data Type วันที่ป้องกัน Error
-            df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'])
+            df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'], errors='coerce')          
         
             # เรียงลำดับ: Open ขึ้นก่อน, ตามด้วยวันที่ใหม่ล่าสุด
             df_journal['temp_sort'] = df_journal['สถานะ'].apply(lambda x: 0 if "Open" in x else 1)
