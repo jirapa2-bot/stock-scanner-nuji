@@ -1888,196 +1888,196 @@ def main():
                 
                 # 2. ส่วนการคำนวณ
                 # 2. ส่วนการคำนวณ
-        r_col1, r_col2 = st.columns([1, 1])
-        
-        with r_col1:
-            total_cap = st.number_input(
-                "👉 ระบุจำนวนเงินทุนที่ต้องการใช้คำนวณไม้ซื้อนี้ (บาท):", 
-                min_value=1000, 
-                value=int(total_equity), # นี่คือค่าเริ่มต้นที่ดึงมาจากพอร์ตจริง
-                step=1000,
-                help="สามารถลบตัวเลขนี้แล้วพิมพ์จำนวนเงินที่ต้องการใช้ซื้อจริงได้เลยครับ"
-            )
-            risk_pct = st.slider("2. ความเสี่ยงสูงสุดต่อไม้ (% ของพอร์ต):", min_value=0.25, max_value=3.0, value=1.0, step=0.25)
-        
-        with r_col2:
-            latest_p = float(latest_price_single)
-            
-            sl_type = st.selectbox("3. เลือกเกณฑ์จุดตัดขาดทุน (Stop Loss):", [
-                f"เส้น EMA 10 ({chart_combined['EMA10'].iloc[-1]:.2f} บาท)",
-                f"เส้น EMA 20 ({chart_combined['EMA20'].iloc[-1]:.2f} บาท)",
-                "กำหนดเป็นเปอร์เซ็นต์คงที่ (Fixed %)",
-                "กำหนดราคาคัทด้วยตัวเอง (Manual Price)"
-            ])
-            
-            # กำหนดค่า sl_price ตามเงื่อนไขที่เลือก
-            if "EMA 10" in sl_type:
-                sl_price = float(chart_combined['EMA10'].iloc[-1])
-            elif "EMA 20" in sl_type:
-                sl_price = float(chart_combined['EMA20'].iloc[-1])
-            elif "กำหนดเป็นเปอร์เซ็นต์คงที่" in sl_type:
-                fixed_sl_pct = st.slider("ระบุ % Stop Loss ที่ต้องการ:", min_value=2.0, max_value=12.0, value=7.0, step=0.5)
-                sl_price = latest_p * (1 - (fixed_sl_pct / 100))
-            else: # Manual Price
-                sl_price = st.number_input("ระบุราคา Stop Loss (บาท):", min_value=0.0, value=latest_p * 0.93, step=0.25)
-        
-        # 3. คำนวณผลลัพธ์
-        max_risk_money = total_cap * (risk_pct / 100)
-        risk_per_share = latest_p - sl_price
-        
-        # ตรวจสอบก่อนนำไปหาร เพื่อป้องกัน Error
-        if risk_per_share <= 0:
-            st.error("⚠️ ราคา Stop Loss ต้องต่ำกว่าราคาซื้อปัจจุบันครับ!")
-        else:
-            shares_to_buy = int(max_risk_money / risk_per_share)
-            total_buy_value = shares_to_buy * latest_p
-            
-            st.markdown("##### 📊 ผลลัพธ์หน้าเทรดและขนาดไม้ที่เหมาะสม:")
-            res_col1, res_col2, res_col3, res_col4 = st.columns(4)
-            res_col1.metric("จำนวนที่ควรซื้อ", f"{shares_to_buy:,} หุ้น")
-            res_col2.metric("เงินลงทุน (Position Size)", f"{total_buy_value:,.0f} ฿")
-            res_col3.metric("ตั้ง SL ที่ราคา", f"{sl_price:.2f} ฿")
-            res_col4.metric("เสียเงินสูงสุดหากแพ้", f"{max_risk_money:,.0f} ฿")
-        #######################          
-        st.markdown("---")
-        # --- 1. ประกาศฟังก์ชันไว้ด้านบน (ห้ามย่อหน้า) ---
-        def calculate_strategy(win_rate, profit_pct, loss_pct, trades=30, initial_capital=100000):
-            fixed_capital = initial_capital
-            fixed_balance = initial_capital
-            comp_balance = initial_capital
-            
-            for i in range(trades):
-                win = np.random.rand() < win_rate
-                # คำนวณแบบไม่ทบต้น
-                fixed_profit = (profit_pct * fixed_capital) if win else (-loss_pct * fixed_capital)
-                fixed_balance += fixed_profit
-                # คำนวณแบบทบต้น
-                comp_profit = (profit_pct * comp_balance) if win else (-loss_pct * comp_balance)
-                comp_balance += comp_profit
+                r_col1, r_col2 = st.columns([1, 1])
                 
-            return fixed_balance, comp_balance
-        
-        def show_strategy_analysis():
-            st.header("📊 ตารางเปรียบเทียบกลยุทธ์: ทบต้น vs ไม่ทบต้น")
-            initial_cap = 100000
-            loss_pct = 0.08
-            trades = 30
-            win_rates = [0.4, 0.5, 0.6]
-            profit_pcts = [0.10, 0.12, 0.14, 0.16]
-        
-            data = []
-            for wr in win_rates:
-                for pr in profit_pcts:
-                    wins = trades * wr
-                    losses = trades * (1 - wr)
-                    fixed_profit = (wins * pr * initial_cap) - (losses * loss_pct * initial_cap)
+                with r_col1:
+                    total_cap = st.number_input(
+                        "👉 ระบุจำนวนเงินทุนที่ต้องการใช้คำนวณไม้ซื้อนี้ (บาท):", 
+                        min_value=1000, 
+                        value=int(total_equity), # นี่คือค่าเริ่มต้นที่ดึงมาจากพอร์ตจริง
+                        step=1000,
+                        help="สามารถลบตัวเลขนี้แล้วพิมพ์จำนวนเงินที่ต้องการใช้ซื้อจริงได้เลยครับ"
+                    )
+                    risk_pct = st.slider("2. ความเสี่ยงสูงสุดต่อไม้ (% ของพอร์ต):", min_value=0.25, max_value=3.0, value=1.0, step=0.25)
+                
+                with r_col2:
+                    latest_p = float(latest_price_single)
                     
-                    comp_cap = initial_cap
+                    sl_type = st.selectbox("3. เลือกเกณฑ์จุดตัดขาดทุน (Stop Loss):", [
+                        f"เส้น EMA 10 ({chart_combined['EMA10'].iloc[-1]:.2f} บาท)",
+                        f"เส้น EMA 20 ({chart_combined['EMA20'].iloc[-1]:.2f} บาท)",
+                        "กำหนดเป็นเปอร์เซ็นต์คงที่ (Fixed %)",
+                        "กำหนดราคาคัทด้วยตัวเอง (Manual Price)"
+                    ])
+                    
+                    # กำหนดค่า sl_price ตามเงื่อนไขที่เลือก
+                    if "EMA 10" in sl_type:
+                        sl_price = float(chart_combined['EMA10'].iloc[-1])
+                    elif "EMA 20" in sl_type:
+                        sl_price = float(chart_combined['EMA20'].iloc[-1])
+                    elif "กำหนดเป็นเปอร์เซ็นต์คงที่" in sl_type:
+                        fixed_sl_pct = st.slider("ระบุ % Stop Loss ที่ต้องการ:", min_value=2.0, max_value=12.0, value=7.0, step=0.5)
+                        sl_price = latest_p * (1 - (fixed_sl_pct / 100))
+                    else: # Manual Price
+                        sl_price = st.number_input("ระบุราคา Stop Loss (บาท):", min_value=0.0, value=latest_p * 0.93, step=0.25)
+                
+                # 3. คำนวณผลลัพธ์
+                max_risk_money = total_cap * (risk_pct / 100)
+                risk_per_share = latest_p - sl_price
+                
+                # ตรวจสอบก่อนนำไปหาร เพื่อป้องกัน Error
+                if risk_per_share <= 0:
+                    st.error("⚠️ ราคา Stop Loss ต้องต่ำกว่าราคาซื้อปัจจุบันครับ!")
+                else:
+                    shares_to_buy = int(max_risk_money / risk_per_share)
+                    total_buy_value = shares_to_buy * latest_p
+                    
+                    st.markdown("##### 📊 ผลลัพธ์หน้าเทรดและขนาดไม้ที่เหมาะสม:")
+                    res_col1, res_col2, res_col3, res_col4 = st.columns(4)
+                    res_col1.metric("จำนวนที่ควรซื้อ", f"{shares_to_buy:,} หุ้น")
+                    res_col2.metric("เงินลงทุน (Position Size)", f"{total_buy_value:,.0f} ฿")
+                    res_col3.metric("ตั้ง SL ที่ราคา", f"{sl_price:.2f} ฿")
+                    res_col4.metric("เสียเงินสูงสุดหากแพ้", f"{max_risk_money:,.0f} ฿")
+                #######################          
+                st.markdown("---")
+                # --- 1. ประกาศฟังก์ชันไว้ด้านบน (ห้ามย่อหน้า) ---
+                def calculate_strategy(win_rate, profit_pct, loss_pct, trades=30, initial_capital=100000):
+                    fixed_capital = initial_capital
+                    fixed_balance = initial_capital
+                    comp_balance = initial_capital
+                    
                     for i in range(trades):
-                        if np.random.rand() < wr: comp_cap *= (1 + pr)
-                        else: comp_cap *= (1 - loss_pct)
+                        win = np.random.rand() < win_rate
+                        # คำนวณแบบไม่ทบต้น
+                        fixed_profit = (profit_pct * fixed_capital) if win else (-loss_pct * fixed_capital)
+                        fixed_balance += fixed_profit
+                        # คำนวณแบบทบต้น
+                        comp_profit = (profit_pct * comp_balance) if win else (-loss_pct * comp_balance)
+                        comp_balance += comp_profit
+                        
+                    return fixed_balance, comp_balance
+                
+                def show_strategy_analysis():
+                    st.header("📊 ตารางเปรียบเทียบกลยุทธ์: ทบต้น vs ไม่ทบต้น")
+                    initial_cap = 100000
+                    loss_pct = 0.08
+                    trades = 30
+                    win_rates = [0.4, 0.5, 0.6]
+                    profit_pcts = [0.10, 0.12, 0.14, 0.16]
+                
+                    data = []
+                    for wr in win_rates:
+                        for pr in profit_pcts:
+                            wins = trades * wr
+                            losses = trades * (1 - wr)
+                            fixed_profit = (wins * pr * initial_cap) - (losses * loss_pct * initial_cap)
+                            
+                            comp_cap = initial_cap
+                            for i in range(trades):
+                                if np.random.rand() < wr: comp_cap *= (1 + pr)
+                                else: comp_cap *= (1 - loss_pct)
+                            
+                            data.append({
+                                "Win Rate": f"{int(wr*100)}%",
+                                "Profit %": f"{int(pr*100)}%",
+                                "ไม่ทบต้น (กำไร)": f"{fixed_profit:,.0f}",
+                                "ทบต้น (กำไร)": f"{comp_cap - initial_cap:,.0f}",
+                                "กลยุทธ์ที่แนะนำ": "ทบต้น" if comp_cap > (initial_cap + fixed_profit) else "ไม่ทบต้น"
+                            })
+                    st.table(pd.DataFrame(data))
+                
+                # --- ส่วนแสดงผลความเสี่ยง ทบต้น VS ไม่ทบต้น ---
+                st.markdown("---")
+                
+                st.header("🧮 วิเคราะห์ความเสี่ยงและกลยุทธ์ ทบต้น VS ไม่ทบต้น")
+            
+                # เพิ่มส่วนเลือกช่วงเวลา
+                time_period = st.radio(
+                    "เลือกช่วงเวลาที่ต้องการวิเคราะห์:",
+                    ["1 เดือน", "3 เดือน", "6 เดือน", "1 ปี", "Overall"],
+                    horizontal=True
+                )
+                
+                if "journal_data" in st.session_state and st.session_state.journal_data:
+                    df_journal = pd.DataFrame(st.session_state.journal_data)
+                    # ตรวจสอบว่าคอลัมน์วันที่เป็น datetime
+                    df_journal['วันที่ขาย'] = pd.to_datetime(df_journal['วันที่ขาย'], errors='coerce')
                     
-                    data.append({
-                        "Win Rate": f"{int(wr*100)}%",
-                        "Profit %": f"{int(pr*100)}%",
-                        "ไม่ทบต้น (กำไร)": f"{fixed_profit:,.0f}",
-                        "ทบต้น (กำไร)": f"{comp_cap - initial_cap:,.0f}",
-                        "กลยุทธ์ที่แนะนำ": "ทบต้น" if comp_cap > (initial_cap + fixed_profit) else "ไม่ทบต้น"
-                    })
-            st.table(pd.DataFrame(data))
-        
-        # --- ส่วนแสดงผลความเสี่ยง ทบต้น VS ไม่ทบต้น ---
-        st.markdown("---")
-        
-        st.header("🧮 วิเคราะห์ความเสี่ยงและกลยุทธ์ ทบต้น VS ไม่ทบต้น")
-    
-        # เพิ่มส่วนเลือกช่วงเวลา
-        time_period = st.radio(
-            "เลือกช่วงเวลาที่ต้องการวิเคราะห์:",
-            ["1 เดือน", "3 เดือน", "6 เดือน", "1 ปี", "Overall"],
-            horizontal=True
-        )
-        
-        if "journal_data" in st.session_state and st.session_state.journal_data:
-            df_journal = pd.DataFrame(st.session_state.journal_data)
-            # ตรวจสอบว่าคอลัมน์วันที่เป็น datetime
-            df_journal['วันที่ขาย'] = pd.to_datetime(df_journal['วันที่ขาย'], errors='coerce')
+                    # คำนวณวันย้อนหลังตามช่วงเวลา
+                    today = pd.Timestamp.now()
+                    if time_period == "1 เดือน": filter_date = today - pd.Timedelta(days=30)
+                    elif time_period == "3 เดือน": filter_date = today - pd.Timedelta(days=90)
+                    elif time_period == "6 เดือน": filter_date = today - pd.Timedelta(days=180)
+                    elif time_period == "1 ปี": filter_date = today - pd.Timedelta(days=365)
+                    else: filter_date = pd.Timestamp('1900-01-01') # Overall
+                    
+                    # กรองข้อมูล
+                    df_filtered = df_journal[df_journal['วันที่ขาย'] >= filter_date].copy()
+                    
+                    if not df_filtered.empty:
+                        # --- ปรับ Logic การคำนวณให้ใช้ข้อมูลทั้งหมดที่กรองได้ ---
+                        # คำนวณ ROI% เองโดยตรงจาก df_filtered
+                        df_filtered['ROI_Percent'] = (df_filtered['กำไร/ขาดทุน (บาท)'] / df_filtered['ต้นทุน (บาท)'].replace(0, np.nan)) * 100
+                        
+                        total_trades = len(df_filtered)
+                        win_trades = df_filtered[df_filtered['ROI_Percent'] > 0]
+                        loss_trades = df_filtered[df_filtered['ROI_Percent'] <= 0]
+                        
+                        win_rate_val = (len(win_trades) / total_trades) * 100
+                        avg_profit_val = win_trades['ROI_Percent'].mean() if not win_trades.empty else 0
+                        avg_loss_val = abs(loss_trades['ROI_Percent'].mean()) if not loss_trades.empty else 0
+                        rr_ratio = (avg_profit_val / avg_loss_val) if avg_loss_val != 0 else 0
+                        
+                        # แสดงผล
+                        col1, col2, col3 = st.columns(3)
+                        col1.metric("Win Rate", f"{win_rate_val:.1f}%")
+                        col2.metric("R:R Ratio", f"{rr_ratio:.2f} : 1")
+                        col3.metric("กลยุทธ์แนะนำ", "ทบต้น" if win_rate_val >= 45 and rr_ratio >= 1.5 else "ไม่ทบต้น")
+                        
+                        st.write(f"ผลงานรวมในช่วง {time_period} (ทั้งหมด **{total_trades} ไม้**):")
+                    else:
+                        st.warning("ไม่มีข้อมูลการเทรดในช่วงเวลาที่เลือก")
+                        
+                st.divider()
             
-            # คำนวณวันย้อนหลังตามช่วงเวลา
-            today = pd.Timestamp.now()
-            if time_period == "1 เดือน": filter_date = today - pd.Timedelta(days=30)
-            elif time_period == "3 เดือน": filter_date = today - pd.Timedelta(days=90)
-            elif time_period == "6 เดือน": filter_date = today - pd.Timedelta(days=180)
-            elif time_period == "1 ปี": filter_date = today - pd.Timedelta(days=365)
-            else: filter_date = pd.Timestamp('1900-01-01') # Overall
-            
-            # กรองข้อมูล
-            df_filtered = df_journal[df_journal['วันที่ขาย'] >= filter_date].copy()
-            
-            if not df_filtered.empty:
-                # --- ปรับ Logic การคำนวณให้ใช้ข้อมูลทั้งหมดที่กรองได้ ---
-                # คำนวณ ROI% เองโดยตรงจาก df_filtered
-                df_filtered['ROI_Percent'] = (df_filtered['กำไร/ขาดทุน (บาท)'] / df_filtered['ต้นทุน (บาท)'].replace(0, np.nan)) * 100
-                
-                total_trades = len(df_filtered)
-                win_trades = df_filtered[df_filtered['ROI_Percent'] > 0]
-                loss_trades = df_filtered[df_filtered['ROI_Percent'] <= 0]
-                
-                win_rate_val = (len(win_trades) / total_trades) * 100
-                avg_profit_val = win_trades['ROI_Percent'].mean() if not win_trades.empty else 0
-                avg_loss_val = abs(loss_trades['ROI_Percent'].mean()) if not loss_trades.empty else 0
-                rr_ratio = (avg_profit_val / avg_loss_val) if avg_loss_val != 0 else 0
-                
-                # แสดงผล
-                col1, col2, col3 = st.columns(3)
-                col1.metric("Win Rate", f"{win_rate_val:.1f}%")
-                col2.metric("R:R Ratio", f"{rr_ratio:.2f} : 1")
-                col3.metric("กลยุทธ์แนะนำ", "ทบต้น" if win_rate_val >= 45 and rr_ratio >= 1.5 else "ไม่ทบต้น")
-                
-                st.write(f"ผลงานรวมในช่วง {time_period} (ทั้งหมด **{total_trades} ไม้**):")
-            else:
-                st.warning("ไม่มีข้อมูลการเทรดในช่วงเวลาที่เลือก")
-                
-        st.divider()
-    
-        # --- 3. ตารางเปรียบเทียบ (แบบซ่อนได้) ---
-        with st.expander("📊 ดูตาราง Simulation เทียบเคียง"):
-            # 1. ดึงค่า Default
-            wr_val = w_rate if 'w_rate' in locals() else 0
-            pr_val = avg_profit if 'avg_profit' in locals() else 0
-            ls_val = avg_loss if 'avg_loss' in locals() else 0
-            
-            act_wr = wr_val / 100
-            act_profit = pr_val / 100
-            act_loss = ls_val / 100
-            
-            # 2. สร้าง Range
-            wr_range = [act_wr - 0.10, act_wr - 0.05, act_wr, act_wr + 0.05, act_wr + 0.10]
-            pr_range = [act_profit - 0.05, act_profit - 0.025, act_profit, act_profit + 0.025, act_profit + 0.05]
-            
-            sim_data = []
-            for wr in wr_range:
-                wr_display = max(0, min(1, wr)) 
-                row = {"Win Rate": f"{wr_display*100:.1f}%"}
-                for pr in pr_range:
-                    ev = (wr_display * pr) - ((1 - wr_display) * abs(act_loss))
-                    row[f"{pr*100:.1f}% Profit"] = ev * 100 
-                sim_data.append(row)
-            
-            # 3. เตรียมข้อมูลและเซต Index
-            df_full = pd.DataFrame(sim_data)
-            df_full = df_full.set_index("Win Rate")
-            
-            # 4. แปลงข้อมูลเป็นตัวเลขเพื่อทำ Style
-            df_numeric = df_full.astype(float)
-            
-            # 5. สร้าง Styler และจัด Format (แก้ปัญหา Styler object Error)
-            st_table = df_numeric.style.background_gradient(cmap="RdYlGn", axis=None).format("{:.2f}%")
-            
-            # 6. แสดงผลผ่านตาราง
-            st.dataframe(st_table, use_container_width=True)
-            
-            st.caption(f"ตารางแสดง Expected Return (%) ต่อไม้ โดยอ้างอิงจาก Avg Loss คงที่ {ls_val:.2f}%")
+                # --- 3. ตารางเปรียบเทียบ (แบบซ่อนได้) ---
+                with st.expander("📊 ดูตาราง Simulation เทียบเคียง"):
+                    # 1. ดึงค่า Default
+                    wr_val = w_rate if 'w_rate' in locals() else 0
+                    pr_val = avg_profit if 'avg_profit' in locals() else 0
+                    ls_val = avg_loss if 'avg_loss' in locals() else 0
+                    
+                    act_wr = wr_val / 100
+                    act_profit = pr_val / 100
+                    act_loss = ls_val / 100
+                    
+                    # 2. สร้าง Range
+                    wr_range = [act_wr - 0.10, act_wr - 0.05, act_wr, act_wr + 0.05, act_wr + 0.10]
+                    pr_range = [act_profit - 0.05, act_profit - 0.025, act_profit, act_profit + 0.025, act_profit + 0.05]
+                    
+                    sim_data = []
+                    for wr in wr_range:
+                        wr_display = max(0, min(1, wr)) 
+                        row = {"Win Rate": f"{wr_display*100:.1f}%"}
+                        for pr in pr_range:
+                            ev = (wr_display * pr) - ((1 - wr_display) * abs(act_loss))
+                            row[f"{pr*100:.1f}% Profit"] = ev * 100 
+                        sim_data.append(row)
+                    
+                    # 3. เตรียมข้อมูลและเซต Index
+                    df_full = pd.DataFrame(sim_data)
+                    df_full = df_full.set_index("Win Rate")
+                    
+                    # 4. แปลงข้อมูลเป็นตัวเลขเพื่อทำ Style
+                    df_numeric = df_full.astype(float)
+                    
+                    # 5. สร้าง Styler และจัด Format (แก้ปัญหา Styler object Error)
+                    st_table = df_numeric.style.background_gradient(cmap="RdYlGn", axis=None).format("{:.2f}%")
+                    
+                    # 6. แสดงผลผ่านตาราง
+                    st.dataframe(st_table, use_container_width=True)
+                    
+                    st.caption(f"ตารางแสดง Expected Return (%) ต่อไม้ โดยอ้างอิงจาก Avg Loss คงที่ {ls_val:.2f}%")
         #################################################
         # --- ตารางแสดงแผนการเทรด ---
         with tab_plan:
