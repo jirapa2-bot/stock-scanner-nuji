@@ -459,38 +459,57 @@ def backfill_portfolio_history():
     all_tickers = df['หุ้น'].unique()
     price_history = {}
     for ticker in all_tickers:
-        hist = yf.Ticker(f"{ticker}.BK").history(period="max")
-        # แก้ไขจุดนี้: ปรับ Index ให้เป็น datetime และลบ timezone ออก
-        hist.index = pd.to_datetime(hist.index).tz_localize(None)
-        price_history[ticker] = hist['Close']
+        try:
+            hist = yf.Ticker(f"{ticker}.BK").history(period="max")
+            hist.index = pd.to_datetime(hist.index).tz_localize(None)
+            price_history[ticker] = hist['Close']
+        except:
+            pass
+
+    # โหลดข้อมูล CashFlow เผื่อไว้คำนวณเงินลงทุนจริง (ถ้ามี)
+    try:
+        client = get_gsheet_client()
+        sheet_cash = client.open('MyStockData').worksheet('CashFlow')
+        cash_data = sheet_cash.get_all_records()
+        df_cash = pd.DataFrame(cash_data) if cash_data else pd.DataFrame()
+        if not df_cash.empty:
+            df_cash.columns = df_cash.columns.str.strip()
+            df_cash['Date'] = pd.to_datetime(df_cash['Date'], errors='coerce')
+            df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
+    except:
+        df_cash = pd.DataFrame()
 
     # 3. ลูปคำนวณรายวัน
     for date in all_dates:
-        # ใช้ .normalize() เพื่อให้ date เป็นเวลา 00:00:00 เป๊ะๆ
         date = date.normalize() 
         df_upto = df[df['วันที่'] <= date]
         
         # คำนวณจำนวนหุ้น
         current_holdings = {}
         for ticker in all_tickers:
-            buys = df_upto[(df_upto['หุ้น'] == ticker) & (df_upto['ประเภท'].str.contains("ซื้อ"))]['จำนวนหุ้นที่ซื้อ'].sum()
-            sells = df_upto[(df_upto['หุ้น'] == ticker) & (df_upto['ประเภท'].str.contains("ขาย"))]['จำนวนหุ้นที่ซื้อ'].sum()
-            shares = buys - sells
-            if shares > 0:
-                current_holdings[ticker] = shares
+            if ticker in price_history:
+                buys = df_upto[(df_upto['หุ้น'] == ticker) & (df_upto['ประเภท'].str.contains("ซื้อ", na=False))]['จำนวนหุ้นที่ซื้อ'].sum()
+                sells = df_upto[(df_upto['หุ้น'] == ticker) & (df_upto['ประเภท'].str.contains("ขาย", na=False))]['จำนวนหุ้นที่ซื้อ'].sum()
+                shares = buys - sells
+                if shares > 0:
+                    current_holdings[ticker] = shares
         
         # คำนวณ Market Value
         market_val = 0
         for ticker, shares in current_holdings.items():
-            price_series = price_history[ticker]
-            # กรองข้อมูลที่ <= date หลังจากที่แปลง index เป็น datetime แล้ว
-            price_at_date = price_series[price_series.index <= date]
-            if not price_at_date.empty:
-                market_val += (shares * price_at_date.iloc[-1])
+            if ticker in price_history:
+                price_series = price_history[ticker]
+                price_at_date = price_series[price_series.index <= date]
+                if not price_at_date.empty:
+                    market_val += (shares * price_at_date.iloc[-1])
         
-        # คำนวณเงินลงทุน
-        df_buys = df_upto[df_upto['ประเภท'].str.contains("ซื้อ", na=False)]
-        invested = pd.to_numeric(df_buys['ต้นทุน (บาท)'], errors='coerce').fillna(0).sum()
+        # [จุดที่แก้ไข] คำนวณเงินลงทุนจริงจาก CashFlow สะสม (ไม่เอาเงินหมุนจากการขายมานับซ้ำ)
+        if not df_cash.empty and 'Date' in df_cash.columns and 'Amount' in df_cash.columns:
+            df_cash_upto = df_cash[df_cash['Date'] <= date]
+            invested = df_cash_upto['Amount'].sum() if not df_cash_upto.empty else 1283405
+        else:
+            # ถ้าไม่มีชีท CashFlow ให้ใช้ทุนเริ่มต้นตายตัว หรือใช้วิ่ายอดซื้อวันแรกสุดครั้งเดียว
+            invested = 1283405
         
         history_list.append({
             'Date': date.strftime('%Y-%m-%d'),
@@ -498,7 +517,6 @@ def backfill_portfolio_history():
             'Invested_Capital': invested
         })
     
-    # 4. บันทึก
     # 4. บันทึกข้อมูลลงชีท Portfolio_History โดยตรง
     df_history = pd.DataFrame(history_list)
     df_history = df_history.fillna(0)
@@ -507,7 +525,6 @@ def backfill_portfolio_history():
         client = get_gsheet_client()
         sheet = client.open('MyStockData').worksheet('Portfolio_History')
         
-        # ล้างข้อมูลเดิมและเขียนใหม่ทั้งหมด (Header + Data)
         sheet.clear()
         sheet.update([df_history.columns.values.tolist()] + df_history.values.tolist())
         
