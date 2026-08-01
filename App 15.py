@@ -698,7 +698,7 @@ def get_equity_curve_data():
     
     return df_equity
     
-ef get_total_market_value():
+def get_total_market_value():
     """คำนวณมูลค่าหุ้นทั้งหมดที่ถืออยู่ ณ ราคาปัจจุบัน"""
     total_val = 0
     if "my_portfolio" in st.session_state:
