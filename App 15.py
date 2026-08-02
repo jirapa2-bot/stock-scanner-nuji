@@ -2078,7 +2078,7 @@ def main():
                         # 3. บันทึกลง Google Sheets และอัปเดตหน้าจอ
                         save_portfolio()
                         save_journal()
-                        save_cash_balance(st.session_state.cash_balance)
+                        #save_cash_balance(st.session_state.cash_balance)
                         
                         # --- เพิ่มการคำนวณมูลค่าพอร์ตสุทธิ (Total Equity) ตรงนี้ให้ชัวร์ ---
                         # คำนวณมูลค่าหุ้นคงเหลือในพอร์ตปัจจุบัน
