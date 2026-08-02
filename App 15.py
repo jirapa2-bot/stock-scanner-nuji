@@ -2905,7 +2905,7 @@ def main():
          
                 ########################################################################
                 # 3. ตารางประวัติ 
-                if st.session_state.journal_data:
+                    
                     df_journal = pd.DataFrame(st.session_state.journal_data)
                     df_journal['วันที่'] = pd.to_datetime(df_journal['วันที่'])             
                     # แก้ไข Data Type วันที่ป้องกัน Error
