@@ -2689,7 +2689,15 @@ def main():
                         fig_donut_market.update_traces(
                             textinfo='percent+label',
                             hovertemplate='<b>Sector:</b> %{label}<br><b>มูลค่าตลาด:</b> %{value:,.2f} ฿<br><b>สัดส่วนตลาด:</b> %{percent}'
-# 📋 ตารางสรุปน้ำหนักการลงทุนแต่ละกลุ่ม
+                        )
+                        fig_donut_market.update_layout(
+                            height=380,
+                            margin=dict(l=10, r=10, t=40, b=40),
+                            showlegend=True
+                        )
+                        st.plotly_chart(fig_donut_market, use_container_width=True)
+
+                    # 📋 ตารางสรุปน้ำหนักการลงทุนแต่ละกลุ่ม
                     st.markdown("##### 📋 ตารางสรุปน้ำหนักการลงทุนแต่ละกลุ่มในพอร์ต")
                     display_port_sector = df_port_sector[[
                         'Sector', 'มูลค่าต้นทุน', 'Cost_Weight_Pct', 'มูลค่าตลาด', 'Market_Weight_Pct', 'หุ้น'
@@ -2714,7 +2722,6 @@ def main():
                         use_container_width=True,
                         hide_index=True 
                     )
-                    
                 else:
                     st.info("ยังไม่มีข้อมูลหุ้นในพอร์ตปัจจุบันครับ")
 
