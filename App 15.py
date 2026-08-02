@@ -1651,79 +1651,25 @@ def main():
                     
                     ######### กราฟรายเดือน vs พร์อตสะสม ###################
                     st.markdown("##### 📈 ผลงานรายเดือน vs พอร์ตสะสม")
-
-                    # --- 0. ดึงเฉพาะรายการที่ขายแล้ว (Closed) และยึด "วันที่ขาย" เป็นหลัก ---
+                    # --- 0. เตรียมข้อมูลรายการที่ขายแล้ว (Closed) และยึด "วันที่ขาย" เป็นหลัก ---
                     if 'journal_data' in st.session_state and st.session_state.journal_data:
                         df_j_all = pd.DataFrame(st.session_state.journal_data)
-                        # กรองเฉพาะรายการที่ขายแล้ว (Closed) เพื่อดูผลงานกำไรขาดทุนจริงตามวันที่ขาย
                         df_closed_perf = df_j_all[df_j_all['สถานะ'] == 'Closed (ขายแล้ว)'].copy()
                     else:
                         df_closed_perf = df_filtered.copy()
                     
-                    # แปลงวันที่ขายให้เป็น Datetime (เปลี่ยนชื่อคอลัมน์ 'วันที่' เป็นวันที่ขายจริงตามโครงสร้างชีทของคุณ เช่น 'วันที่ขาย' หรือ 'วันที่')
-                    # ถ้าในชีทใช้คอลัมน์ 'วันที่' เป็นวันที่ทำรายการขาย ให้ใช้ 'วันที่' ได้เลยครับ
                     df_closed_perf['Sell_Date'] = pd.to_datetime(df_closed_perf['วันที่ขาย'], errors='coerce')
+                    df_closed_perf['กำไร/ขาดทุน (บาท)'] = pd.to_numeric(df_closed_perf['กำไร/ขาดทุน (บาท)'], errors='coerce').fillna(0)
+                    df_closed_perf['ต้นทุน (บาท)'] = pd.to_numeric(df_closed_perf['ต้นทุน (บาท)'], errors='coerce').fillna(0)
                     
-                    # --- 1. สร้าง Dropdown เลือกปีจาก "ปีที่ขายจริง" ---
+                    # ==========================================
+                    # ส่วนที่ 1: สำหรับกราฟแท่งและตาราง (รายเดือน มี Dropdown เลือกปี)
+                    # ==========================================
                     available_years = sorted(df_closed_perf['Sell_Date'].dt.year.dropna().unique(), reverse=True)
                     if not available_years:
                         available_years = [2026]
                     
-                    selected_year = st.selectbox("📅 เลือกปีที่ต้องการดูผลงาน (ตามวันที่ขาย):", available_years, key="select_year_perf")
-                    
-                    # --- 2. คำนวณกำไรสะสมแบบต่อเนื่องทั้งหมด (เรียงตามวันที่ขายจริง) ---
-                    df_closed_perf = df_closed_perf.sort_values('Sell_Date')
-                    df_closed_perf['กำไร/ขาดทุน (บาท)'] = pd.to_numeric(df_closed_perf['กำไร/ขาดทุน (บาท)'], errors='coerce').fillna(0)
-                    df_closed_perf['ต้นทุน (บาท)'] = pd.to_numeric(df_closed_perf['ต้นทุน (บาท)'], errors='coerce').fillna(0)
-                    
-                    df_closed_perf['Cumulative_Profit'] = df_closed_perf['กำไร/ขาดทุน (บาท)'].cumsum()
-                    
-                    # กรองเฉพาะปีที่เลือก (อิงจากปีที่ขาย) มาแสดงผล
-                    df_filtered_year = df_closed_perf[df_closed_perf['Sell_Date'].dt.year == selected_year].copy()
-                    
-                    # สร้างโครงสร้าง 12 เดือน (Jan - Dec) ของปีที่เลือก
-                    months_range = pd.date_range(start=f"{selected_year}-01-01", end=f"{selected_year}-12-01", freq='MS')
-                    df_full_year = pd.DataFrame({
-                        'Date': months_range,
-                        'Month_Label': months_range.strftime('%b %Y')
-                    })
-                    
-                    if not df_filtered_year.empty:
-                        df_filtered_year['Month_Label'] = df_filtered_year['Sell_Date'].dt.strftime('%b %Y')
-                        df_grouped = df_filtered_year.groupby('Month_Label', sort=False).agg({
-                            'กำไร/ขาดทุน (บาท)': 'sum',
-                            'ต้นทุน (บาท)': 'sum'
-                        }).reset_index()
-                        
-                        df_monthly = pd.merge(df_full_year, df_grouped, on='Month_Label', how='left').fillna({
-                            'กำไร/ขาดทุน (บาท)': 0,
-                            'ต้นทุน (บาท)': 0
-                        })
-                    else:
-                        df_monthly = df_full_year.copy()
-                        df_monthly['กำไร/ขาดทุน (บาท)'] = 0
-                        df_monthly['ต้นทุน (บาท)'] = 0
-                    
-                    df_monthly = df_monthly.sort_values('Date').reset_index(drop=True)
-                    df_monthly.columns = ['Date', 'Month_Label', 'Profit_Sum', 'Cost_Sum']
-                    
-                    # ดึงค่า Cumulative_Profit ล่าสุดของแต่ละเดือนตามวันที่ขายจริงแบบต่อเนื่อง
-                    cumulative_list = []
-                    last_val = 0
-                    for _, row in df_full_year.iterrows():
-                        m_label = row['Month_Label']
-                        matched_rows = df_closed_perf[df_closed_perf['Sell_Date'].dt.strftime('%b %Y') == m_label]
-                        if not matched_rows.empty:
-                            last_val = matched_rows['Cumulative_Profit'].iloc[-1]
-                        cumulative_list.append(last_val)
-                    
-                    df_monthly['Cumulative_Profit'] = cumulative_list
-                    df_monthly['Color'] = df_monthly['Profit_Sum'].apply(lambda x: 'Profit' if x >= 0 else 'Loss')
-                    df_monthly['Monthly_ROI'] = df_monthly.apply(
-                        lambda row: (row['Profit_Sum'] / row['Cost_Sum'] * 100) if row['Cost_Sum'] > 0 else 0, 
-                        axis=1
-                    )
-                    df_monthly['ROI_Text'] = df_monthly['Monthly_ROI'].apply(lambda x: f"{x:+.2f}%")
+                    df_closed_perf_sorted = df_closed_perf.sort_values('Sell_Date')
                     
                     # --- 3. ตัวเลือกสลับดูเป็น กราฟ หรือ ตาราง ---
                     view_mode = st.radio("เลือกรูปแบบการแสดงผล:", ["📊 แสดงกราฟ", "📋 แสดงตารางข้อมูล"], horizontal=True, label_visibility="collapsed", key="view_mode_perf")
@@ -1732,6 +1678,44 @@ def main():
                         c1, c2 = st.columns(2)
                     
                         with c1:
+                            # ย้าย Dropdown เลือกปีเข้ามาไว้ด้านในฝั่งซ้าย (ให้ขนานกับ Dropdown ช่วงเวลากราฟเส้นฝั่งขวา)
+                            selected_year = st.selectbox("📅 เลือกปีที่ต้องการดูผลงานกราฟแท่ง:", available_years, key="select_year_perf")
+                            
+                            df_filtered_year = df_closed_perf_sorted[df_closed_perf_sorted['Sell_Date'].dt.year == selected_year].copy()
+                            
+                            months_range = pd.date_range(start=f"{selected_year}-01-01", end=f"{selected_year}-12-01", freq='MS')
+                            df_full_year = pd.DataFrame({
+                                'Date': months_range,
+                                'Month_Label': months_range.strftime('%b %Y')
+                            })
+                            
+                            if not df_filtered_year.empty:
+                                df_filtered_year['Month_Label'] = df_filtered_year['Sell_Date'].dt.strftime('%b %Y')
+                                df_grouped = df_filtered_year.groupby('Month_Label', sort=False).agg({
+                                    'กำไร/ขาดทุน (บาท)': 'sum',
+                                    'ต้นทุน (บาท)': 'sum'
+                                }).reset_index()
+                                
+                                df_monthly = pd.merge(df_full_year, df_grouped, on='Month_Label', how='left').fillna({
+                                    'กำไร/ขาดทุน (บาท)': 0,
+                                    'ต้นทุน (บาท)': 0
+                                })
+                            else:
+                                df_monthly = df_full_year.copy()
+                                df_monthly['กำไร/ขาดทุน (บาท)'] = 0
+                                df_monthly['ต้นทุน (บาท)'] = 0
+                    
+                            df_monthly = df_monthly.sort_values('Date').reset_index(drop=True)
+                            df_monthly.columns = ['Date', 'Month_Label', 'Profit_Sum', 'Cost_Sum']
+                            df_monthly['Color'] = df_monthly['Profit_Sum'].apply(lambda x: 'Profit' if x >= 0 else 'Loss')
+                            df_monthly['Monthly_ROI'] = df_monthly.apply(
+                                lambda row: (row['Profit_Sum'] / row['Cost_Sum'] * 100) if row['Cost_Sum'] > 0 else 0, 
+                                axis=1
+                            )
+                            df_monthly['ROI_Text'] = df_monthly['Monthly_ROI'].apply(lambda x: f"{x:+.2f}%")
+                    
+                            st.markdown(f"**📊 ผลงานรายเดือน ประจำปี {selected_year}**")
+                            
                             chart_bar = alt.Chart(df_monthly).mark_bar(width=25).encode(
                                 x=alt.X('Month_Label:O', title='เดือน (ตามวันที่ขาย)', sort=None), 
                                 y=alt.Y('Profit_Sum:Q', title='กำไร/ขาดทุน (บาท)'),
@@ -1752,31 +1736,136 @@ def main():
                             )
                     
                             rule = alt.Chart(pd.DataFrame({'y': [0]})).mark_rule(color='#666666', strokeDash=[3,3]).encode(y='y')
-                            st.altair_chart((chart_bar + text_labels + rule).properties(height=300), use_container_width=True)
+                            
+                            st.altair_chart((chart_bar + text_labels + rule).properties(height=350), use_container_width=True)
                     
                         with c2:
-                            chart_line = alt.Chart(df_monthly).mark_line(point=True, color='#3498db', strokeWidth=3).encode(
-                                x=alt.X('Month_Label:O', title='เดือน', sort=None),
-                                y=alt.Y('Cumulative_Profit:Q', title='กำไรสะสม (บาท)'),
-                                tooltip=['Month_Label', 'Cumulative_Profit']
-                            ).properties(height=300)
-                            st.altair_chart(chart_line, use_container_width=True)
+                            # ==========================================
+                            # ส่วนที่ 2: สำหรับกราฟเส้น (รองรับหลายปี + ตัวเลือกช่วงเวลา + Dynamic Aggregation + Zoom)
+                            # ==========================================
+                            initial_past_profit = 0.0 # กำไรตั้งต้น
+                            
+                            st.markdown("##### 📈 กราฟเส้นกำไรสะสมพอร์ตระยะยาว")
+                            
+                            if not df_closed_perf_sorted.empty:
+                                # 1. ทำตัวเลือกช่วงเวลา (Quick Filter) สำหรับกราฟเส้นโดยเฉพาะ
+                                c_f1, c_f2 = st.columns([2, 2])
+                                with c_f1:
+                                    line_view_range = st.selectbox(
+                                        "⏳ เลือกช่วงเวลาแสดงผล (กราฟเส้น):",
+                                        ["ทั้งหมด (All Time)", "3 เดือนล่าสุด", "6 เดือนล่าสุด", "1 ปีล่าสุด (YTD / 12M)"],
+                                        key="line_view_range"
+                                    )
+                                
+                                # กรองข้อมูลตามช่วงเวลาที่เลือก
+                                df_line_filtered = df_closed_perf_sorted.copy()
+                                max_date = df_line_filtered['Sell_Date'].max()
+                                
+                                if line_view_range == "3 เดือนล่าสุด":
+                                    start_date = max_date - pd.DateOffset(months=3)
+                                    past_slice = df_line_filtered[df_line_filtered['Sell_Date'] < start_date]
+                                    initial_past_profit_adjusted = initial_past_profit + past_slice['กำไร/ขาดทุน (บาท)'].sum()
+                                    df_line_filtered = df_line_filtered[df_line_filtered['Sell_Date'] >= start_date]
+                                elif line_view_range == "6 เดือนล่าสุด":
+                                    start_date = max_date - pd.DateOffset(months=6)
+                                    past_slice = df_line_filtered[df_line_filtered['Sell_Date'] < start_date]
+                                    initial_past_profit_adjusted = initial_past_profit + past_slice['กำไร/ขาดทุน (บาท)'].sum()
+                                    df_line_filtered = df_line_filtered[df_line_filtered['Sell_Date'] >= start_date]
+                                elif line_view_range == "1 ปีล่าสุด (YTD / 12M)":
+                                    start_date = max_date - pd.DateOffset(years=1)
+                                    past_slice = df_line_filtered[df_line_filtered['Sell_Date'] < start_date]
+                                    initial_past_profit_adjusted = initial_past_profit + past_slice['กำไร/ขาดทุน (บาท)'].sum()
+                                    df_line_filtered = df_line_filtered[df_line_filtered['Sell_Date'] >= start_date]
+                                else:
+                                    initial_past_profit_adjusted = initial_past_profit
+                    
+                                if not df_line_filtered.empty:
+                                    # 2. Dynamic Aggregation: ตรวจสอบช่วงเวลา ถ้าระยะเวลามากกว่า 1 ปี ให้ยุบเป็น "รายเดือน" อัตโนมัติเพื่อกันกราฟแน่น
+                                    date_span_days = (df_line_filtered['Sell_Date'].max() - df_line_filtered['Sell_Date'].min()).days
+                                    
+                                    if date_span_days > 365 and line_view_range == "ทั้งหมด (All Time)":
+                                        df_line_filtered['Period_Key'] = df_line_filtered['Sell_Date'].dt.to_period('M')
+                                        df_line_filtered['Time_Label'] = df_line_filtered['Period_Key'].apply(lambda r: r.strftime('%b %Y'))
+                                        df_line_filtered['Sort_Time'] = df_line_filtered['Period_Key'].dt.start_time
+                                        agg_freq_text = "รายเดือน (มุมมองระยะยาว)"
+                                    else:
+                                        df_line_filtered['Period_Key'] = df_line_filtered['Sell_Date'].dt.to_period('W-MON')
+                                        df_line_filtered['Time_Label'] = df_line_filtered['Period_Key'].apply(lambda r: f"W{r.week} {r.start_time.strftime('%b %Y')}")
+                                        df_line_filtered['Sort_Time'] = df_line_filtered['Period_Key'].dt.start_time
+                                        agg_freq_text = "รายสัปดาห์ (เจาะลึก)"
+                    
+                                    with c_f2:
+                                        st.markdown(f"<p style='padding-top:28px; color:gray; font-size:13px;'>ℹ️ ความละเอียด: <b>{agg_freq_text}</b></p>", unsafe_allow_html=True)
+                    
+                                    # รวมกำไรตามช่วงเวลาที่จัดกลุ่ม
+                                    df_line_grouped = df_line_filtered.groupby(['Sort_Time', 'Time_Label'], as_index=False).agg({
+                                        'กำไร/ขาดทุน (บาท)': 'sum'
+                                    }).sort_values('Sort_Time')
+                                    
+                                    # คำนวณกำไรสะสมต่อเนื่อง
+                                    df_line_grouped['Cumulative_Profit'] = initial_past_profit_adjusted + df_line_grouped['กำไร/ขาดทุน (บาท)'].cumsum()
+                    
+                                    # 3. สร้างกราฟเส้นพร้อมเปิด Interactive Zoom & Pan
+                                    chart_line = alt.Chart(df_line_grouped).mark_line(point=True, color='#3498db', strokeWidth=3).encode(
+                                        x=alt.X('Time_Label:O', title='ช่วงเวลาที่มีการเคลื่อนไหว', sort=list(df_line_grouped['Time_Label'])),
+                                        y=alt.Y('Cumulative_Profit:Q', title='กำไรสะสม (บาท)'),
+                                        tooltip=['Time_Label', 'Cumulative_Profit']
+                                    ).properties(
+                                        height=350
+                                    ).interactive()
+                                    
+                                    st.altair_chart(chart_line, use_container_width=True)
+                                else:
+                                    st.info("ไม่มีข้อมูลในช่วงเวลาที่เลือก")
+                            else:
+                                st.info("ยังไม่มีข้อมูลประวัติการเทรดที่ปิดสถานะ")
                     
                     else:
+                        # สำหรับโหมดตาราง (ใช้ปีที่เลือกจากฝั่งซ้ายมาแสดงผล)
+                        selected_year = st.session_state.get('select_year_perf', available_years[0])
+                        df_filtered_year = df_closed_perf_sorted[df_closed_perf_sorted['Sell_Date'].dt.year == selected_year].copy()
+                        
+                        months_range = pd.date_range(start=f"{selected_year}-01-01", end=f"{selected_year}-12-01", freq='MS')
+                        df_full_year = pd.DataFrame({
+                            'Date': months_range,
+                            'Month_Label': months_range.strftime('%b %Y')
+                        })
+                        
+                        if not df_filtered_year.empty:
+                            df_filtered_year['Month_Label'] = df_filtered_year['Sell_Date'].dt.strftime('%b %Y')
+                            df_grouped = df_filtered_year.groupby('Month_Label', sort=False).agg({
+                                'กำไร/ขาดทุน (บาท)': 'sum',
+                                'ต้นทุน (บาท)': 'sum'
+                            }).reset_index()
+                            df_monthly = pd.merge(df_full_year, df_grouped, on='Month_Label', how='left').fillna({
+                                'กำไร/ขาดทุน (บาท)': 0,
+                                'ต้นทุน (บาท)': 0
+                            })
+                        else:
+                            df_monthly = df_full_year.copy()
+                            df_monthly['กำไร/ขาดทุน (บาท)'] = 0
+                            df_monthly['ต้นทุน (บาท)'] = 0
+                    
+                        df_monthly = df_monthly.sort_values('Date').reset_index(drop=True)
+                        df_monthly.columns = ['Date', 'Month_Label', 'Profit_Sum', 'Cost_Sum']
+                        df_monthly['Monthly_ROI'] = df_monthly.apply(
+                            lambda row: (row['Profit_Sum'] / row['Cost_Sum'] * 100) if row['Cost_Sum'] > 0 else 0, 
+                            axis=1
+                        )
+                    
                         st.markdown(f"##### 📋 ตารางสรุปผลงานรายเดือน (อิงวันที่ขาย) ประจำปี {selected_year}")
-                        df_display = df_monthly[['Month_Label', 'Profit_Sum', 'Cost_Sum', 'Monthly_ROI', 'Cumulative_Profit']].copy()
-                        df_display.columns = ['เดือน', 'กำไร/ขาดทุน (บาท)', 'ต้นทุนประจำเดือน (บาท)', '% กำไร/ขาดทุน (ROI)', 'กำไรสะสม (บาท)']
+                        df_display = df_monthly[['Month_Label', 'Profit_Sum', 'Cost_Sum', 'Monthly_ROI']].copy()
+                        df_display.columns = ['เดือน', 'กำไร/ขาดทุน (บาท)', 'ต้นทุนประจำเดือน (บาท)', '% กำไร/ขาดทุน (ROI)']
                         
                         st.dataframe(
                             df_display.style.format({
                                 'กำไร/ขาดทุน (บาท)': '{:,.2f}',
                                 'ต้นทุนประจำเดือน (บาท)': '{:,.2f}',
-                                '% กำไร/ขาดทุน (ROI)': '{:.2f}%',
-                                'กำไรสะสม (บาท)': '{:,.2f}'
+                                '% กำไร/ขาดทุน (ROI)': '{:.2f}%'
                             }),
                             use_container_width=True
-                        ) 
-                                                                                
+                        )
+                                                                                                    
                     ##### กราฟกระจายตัว (Histogram) ###########
                     st.markdown("---")
                     st.markdown("##### 🔔 การกระจายตัวกำไร/ขาดทุน (%)")
