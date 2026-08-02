@@ -2030,30 +2030,29 @@ def main():
                             # 📊 ส่วน กราฟแท่ง (Bar Chart)
                             st.markdown("##### 📊 กำไร/ขาดทุนสะสมแยกตามกลุ่มอุตสาหกรรม")
                             
-                            # ฟังก์ชันช่วยตัดข้อความยาวๆ ให้ขึ้นบรรทัดใหม่ (เช่น ทุกๆ 18 ตัวอักษร) เพื่อไม่ให้ชนกัน
-                            def wrap_text(text, max_len=18):
-                                words = str(text).split(' ')
-                                lines = []
-                                current_line = ""
-                                for word in words:
-                                    if len(current_line + " " + word) <= max_len:
-                                        current_line = (current_line + " " + word).strip()
-                                    else:
-                                        if current_line:
-                                            lines.append(current_line)
-                                        current_line = word
-                                if current_line:
-                                    lines.append(current_line)
-                                return "<br>".join(lines)
+                            # สร้าง Dictionary ย่อชื่อ Sector ที่ยาวมากๆ ให้สั้นกระชับสำหรับแสดงผลบนกราฟ
+                            short_sector_names = {
+                                "กองทุนรวมอสังหาริมทรัพย์และกองทรัสต์เพื่อการลงทุนในอสังหาริมทรัพย์": "กองทุนอสังหาฯ/ทรัสต์",
+                                "อสังหาริมทรัพย์และก่อสร้าง": "อสังหาฯ และก่อสร้าง",
+                                "เกษตรและอุตสาหกรรมอาหาร": "เกษตรและอาหาร",
+                                "สินค้าอุตสาหกรรม": "สินค้าอุตสาหกรรม",
+                                "ธุรกิจการเงิน": "ธุรกิจการเงิน",
+                                "เทคโนโลยี": "เทคโนโลยี",
+                                "บริการ": "บริการ",
+                                "ทรัพยากร": "ทรัพยากร",
+                                "พาณิชย์": "พาณิชย์",
+                                "General / Unspecified": "อื่นๆ"
+                            }
     
-                            # สร้างคอลัมน์ชื่อย่อสำหรับแสดงผลที่แกน X (ตัดบรรทัดอัตโนมัติ)
-                            df_sector_summary['Sector_Wrapped'] = df_sector_summary['Sector'].apply(lambda x: wrap_text(x, max_len=16))
+                            # คัดลอก DataFrame มาทำข้อมูลแสดงผลเฉพาะบนกราฟ
+                            df_bar_plot = df_sector_summary.copy()
+                            df_bar_plot['Short_Sector'] = df_bar_plot['Sector'].map(short_sector_names).fillna(df_bar_plot['Sector'])
     
                             fig_bar = px.bar(
-                                df_sector_summary, 
-                                x='Sector_Wrapped', # ใช้ชื่อที่ตัดบรรทัดแล้วแสดงบนกราฟ
+                                df_bar_plot, 
+                                x='Short_Sector', # ใช้ชื่อที่ย่อแล้วแสดงบนแกน X
                                 y='Net_Profit', 
-                                text=df_sector_summary['Net_Profit'].apply(lambda x: f"{x:,.2f} ฿"), 
+                                text=df_bar_plot['Net_Profit'].apply(lambda x: f"{x:,.2f} ฿"), 
                                 color='Net_Profit', 
                                 color_continuous_scale=['#EF5350', '#26A69A']
                             )
@@ -2061,18 +2060,18 @@ def main():
                             fig_bar.update_layout(
                                 xaxis_title="กลุ่มอุตสาหกรรม (Sector)", 
                                 yaxis_title="กำไร/ขาดทุนสุทธิ (บาท)", 
-                                height=450,  # เพิ่มความสูงอีกนิดเพื่อให้มีพื้นที่รองรับข้อความหลายบรรทัด
-                                margin=dict(l=20, r=20, t=30, b=80),  # เพิ่มขอบล่าง (b=80) กันชื่อหลุดขอบ
+                                height=480,  # เพิ่มความสูง
+                                margin=dict(l=20, r=20, t=40, b=50),  
                                 coloraxis_showscale=False
                             )
-                            # ปรับแต่งแกน X ให้ตัวหนังสือตั้งตรงสวยงามและจัดกึ่งกลาง
+                            # ตั้งค่าให้ตัวหนังสือตั้งตรงสวยงาม ไม่เอียง และมีระยะห่างพอดี
                             fig_bar.update_xaxes(
                                 tickangle=0,
                                 tickfont=dict(size=11),
                                 automargin=True
                             )
                             st.plotly_chart(fig_bar, use_container_width=True)
-                
+                    
                             # 🗺️ ส่วน Treemap
                             st.markdown("##### 🗺️ แผนผังแสดงสัดส่วนและผลงานพอร์ตตาม Sector (Treemap)")
                             fig_tree = px.treemap(
