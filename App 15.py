@@ -2029,9 +2029,29 @@ def main():
                 
                             # 📊 ส่วน กราฟแท่ง (Bar Chart)
                             st.markdown("##### 📊 กำไร/ขาดทุนสะสมแยกตามกลุ่มอุตสาหกรรม")
+                            
+                            # ฟังก์ชันช่วยตัดข้อความยาวๆ ให้ขึ้นบรรทัดใหม่ (เช่น ทุกๆ 18 ตัวอักษร) เพื่อไม่ให้ชนกัน
+                            def wrap_text(text, max_len=18):
+                                words = str(text).split(' ')
+                                lines = []
+                                current_line = ""
+                                for word in words:
+                                    if len(current_line + " " + word) <= max_len:
+                                        current_line = (current_line + " " + word).strip()
+                                    else:
+                                        if current_line:
+                                            lines.append(current_line)
+                                        current_line = word
+                                if current_line:
+                                    lines.append(current_line)
+                                return "<br>".join(lines)
+    
+                            # สร้างคอลัมน์ชื่อย่อสำหรับแสดงผลที่แกน X (ตัดบรรทัดอัตโนมัติ)
+                            df_sector_summary['Sector_Wrapped'] = df_sector_summary['Sector'].apply(lambda x: wrap_text(x, max_len=16))
+    
                             fig_bar = px.bar(
                                 df_sector_summary, 
-                                x='Sector', 
+                                x='Sector_Wrapped', # ใช้ชื่อที่ตัดบรรทัดแล้วแสดงบนกราฟ
                                 y='Net_Profit', 
                                 text=df_sector_summary['Net_Profit'].apply(lambda x: f"{x:,.2f} ฿"), 
                                 color='Net_Profit', 
@@ -2041,9 +2061,15 @@ def main():
                             fig_bar.update_layout(
                                 xaxis_title="กลุ่มอุตสาหกรรม (Sector)", 
                                 yaxis_title="กำไร/ขาดทุนสุทธิ (บาท)", 
-                                height=400, 
-                                margin=dict(l=20, r=20, t=30, b=20), 
+                                height=450,  # เพิ่มความสูงอีกนิดเพื่อให้มีพื้นที่รองรับข้อความหลายบรรทัด
+                                margin=dict(l=20, r=20, t=30, b=80),  # เพิ่มขอบล่าง (b=80) กันชื่อหลุดขอบ
                                 coloraxis_showscale=False
+                            )
+                            # ปรับแต่งแกน X ให้ตัวหนังสือตั้งตรงสวยงามและจัดกึ่งกลาง
+                            fig_bar.update_xaxes(
+                                tickangle=0,
+                                tickfont=dict(size=11),
+                                automargin=True
                             )
                             st.plotly_chart(fig_bar, use_container_width=True)
                 
