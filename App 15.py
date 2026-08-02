@@ -763,7 +763,29 @@ def plot_dual_equity_curve(df_equity):
     fig.update_yaxes(title_text="เงินสดสะสม (฿)", secondary_y=True)
     
     st.plotly_chart(fig, use_container_width=True)
+
+def get_sector_from_mapping(ticker, df_mapping=None):
+    ticker = str(ticker).strip().upper()
     
+    # ฐานข้อมูล Sector แบบฝังโค้ด
+    sector_dict = {
+        "A5.BK": "อสังหาริมทรัพย์และก่อสร้าง", "AAI.BK": "เกษตรและอุตสาหกรรมอาหาร", "AAV.BK": "บริการ", "ABM.BK": "ทรัพยากร", "ACC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ACE.BK": "ทรัพยากร", "ACG.BK": "บริการ", "ADB.BK": "สินค้าอุตสาหกรรม", "ADD.BK": "เทคโนโลยี", "ADVANC.BK": "เทคโนโลยี", "ADVICE.BK": "บริการ", "AE.BK": "บริการ", "AEONTS.BK": "ธุรกิจการเงิน", "AF.BK": "ธุรกิจการเงิน", "AGE.BK": "ทรัพยากร", "AH.BK": "สินค้าอุตสาหกรรม", "AHC.BK": "บริการ", "AI.BK": "สินค้าอุตสาหกรรม", "AIE.BK": "เกษตรและอุตสาหกรรมอาหาร", "AIT.BK": "เทคโนโลยี", "AJ.BK": "สินค้าอุตสาหกรรม", "AJA.BK": "เทคโนโลยี", "AKP.BK": "สินค้าอุตสาหกรรม", "AKR.BK": "สินค้าอุตสาหกรรม", "ALLA.BK": "สินค้าอุตสาหกรรม", "ALLY.BK": "กองทุนรวมอสังหาริมทรัพย์และกองทรัสต์เพื่อการลงทุนในอสังหาริมทรัพย์", "ALPHAX.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ALT.BK": "เทคโนโลยี", "ALUCON.BK": "สินค้าอุตสาหกรรม", "AMA.BK": "บริการ", "AMANAH.BK": "ธุรกิจการเงิน", "AMARC.BK": "บริการ", "AMATA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "AMR.BK": "เทคโนโลยี", "ANAN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ANI.BK": "บริการ", "AOT.BK": "บริการ", "AP.BK": "อสังหาริมทรัพย์และก่อสร้าง", "APCO.BK": "บริการ", "APCS.BK": "อสังหาริมทรัพย์และก่อสร้าง", "APO.BK": "เกษตรและอุตสาหกรรมอาหาร", "APP.BK": "เทคโนโลยี", "APURE.BK": "เกษตรและอุตสาหกรรมอาหาร", "AQUA.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "ARIN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ARIP.BK": "บริการ", "ARROW.BK": "อสังหาริมทรัพย์และก่อสร้าง", "AS.BK": "เทคโนโลยี", "ASAP.BK": "บริการ", "ASEFA.BK": "สินค้าอุตสาหกรรม", "ASIA.BK": "ธุรกิจการเงิน", "ASIAN.BK": "เกษตรและอุตสาหกรรมอาหาร", "ASK.BK": "ธุรกิจการเงิน", "ASN.BK": "ธุรกิจการเงิน", "ASP.BK": "ธุรกิจการเงิน", "ASW.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ATP30.BK": "บริการ", "AU.BK": "บริการ", "AUCT.BK": "บริการ", "AURA.BK": "บริการ", "AWC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "AYUD.BK": "ธุรกิจการเงิน", "BA.BK": "บริการ", "BAFS.BK": "บริการ", "BAM.BK": "ธุรกิจการเงิน", "BANPU.BK": "ทรัพยากร", "BAY.BK": "ธุรกิจการเงิน", "BBGI.BK": "ทรัพยากร", "BBL.BK": "ธุรกิจการเงิน", "BCH.BK": "บริการ",
+        "BCP.BK": "ทรัพยากร", "BCPG.BK": "ทรัพยากร", "BDMS.BK": "บริการ", "BEAUTY.BK": "บริการ", "BEC.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "BEM.BK": "บริการ", "BGC.BK": "สินค้าอุตสาหกรรม", "BGRIM.BK": "ทรัพยากร", "BH.BK": "บริการ", "BIG.BK": "บริการ", "BIZ.BK": "บริการ", "BJC.BK": "บริการ", "BLA.BK": "ธุรกิจการเงิน", "BLC.BK": "สินค้าอุตสาหกรรม", "BRI.BK": "อสังหาริมทรัพย์และก่อสร้าง", "BROCK.BK": "อสังหาริมทรัพย์และก่อสร้าง", "BRR.BK": "เกษตรและอุตสาหกรรมอาหาร", "BSM.BK": "อสังหาริมทรัพย์และก่อสร้าง", "BTC.BK": "บริการ", "BTNPL.BK": "สินค้าอุตสาหกรรม", "BTS.BK": "บริการ", "BTSGIF.BK": "กองทุนรวมอสังหาริมทรัพย์และกองทรัสต์เพื่อการลงทุนในอสังหาริมทรัพย์", "BYD.BK": "บริการ", "CBG.BK": "เกษตรและอุตสาหกรรมอาหาร", "CCET.BK": "เทคโนโลยี", "CENTEL.BK": "บริการ", "CFRESH.BK": "เกษตรและอุตสาหกรรมอาหาร", "CGH.BK": "ธุรกิจการเงิน", "CH.BK": "อสังหาริมทรัพย์และก่อสร้าง", "CHAYO.BK": "ธุรกิจการเงิน", "CHG.BK": "บริการ", "CHOW.BK": "ทรัพยากร", "CIG.BK": "สินค้าอุตสาหกรรม", "CIMBT.BK": "ธุรกิจการเงิน", "CINE.BK": "บริการ", "CK.BK": "อสังหาริมทรัพย์และก่อสร้าง", "CKP.BK": "ทรัพยากร", "CM.BK": "เกษตรและอุตสาหกรรมอาหาร", "CMAN.BK": "สินค้าอุตสาหกรรม", "CMC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "CMO.BK": "บริการ", "CMR.BK": "บริการ", "CNT.BK": "อสังหาริมทรัพย์และก่อสร้าง", "COCOCO.BK": "เกษตรและอุตสาหกรรมอาหาร", "CPALL.BK": "บริการ", "CPAXT.BK": "บริการ", "CPF.BK": "เกษตรและอุตสาหกรรมอาหาร", "CPN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "CPH.BK": "สินค้าอุตสาหกรรม", "CPW.BK": "บริการ", "CRC.BK": "บริการ", "CRD.BK": "อสังหาริมทรัพย์และก่อสร้าง", "CSC.BK": "สินค้าอุตสาหกรรม", "CSP.BK": "สินค้าอุตสาหกรรม", "CSR.BK": "สินค้าอุตสาหกรรม", "CSS.BK": "บริการ", "CTW.BK": "สินค้าอุตสาหกรรม", "CWT.BK": "สินค้าอุตสาหกรรม", "D.BK": "บริการ", "DCC.BK": "สินค้าอุตสาหกรรม", "DELTA.BK": "เทคโนโลยี", "DEXON.BK": "บริการ", "DHOUSE.BK": "อสังหาริมทรัพย์และก่อสร้าง", "DITTO.BK": "เทคโนโลยี", "DMT.BK": "บริการ", "DOHOME.BK": "บริการ", "DRT.BK": "สินค้าอุตสาหกรรม", "DTCENT.BK": "บริการ", "DTCI.BK": "บริการ", "DUSIT.BK": "บริการ",
+        "EA.BK": "ทรัพยากร", "EASTW.BK": "ทรัพยากร", "ECF.BK": "สินค้าอุตสาหกรรม", "ECL.BK": "ธุรกิจการเงิน", "EE.BK": "เกษตรและอุตสาหกรรมอาหาร", "EFORL.BK": "บริการ", "EGCO.BK": "ทรัพยากร", "EKH.BK": "บริการ", "EMC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "EP.BK": "ทรัพยากร", "EPG.BK": "สินค้าอุตสาหกรรม", "ERW.BK": "บริการ", "ESTAR.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ETC.BK": "ทรัพยากร", "EVER.BK": "อสังหาริมทรัพย์และก่อสร้าง", "F&D.BK": "เกษตรและอุตสาหกรรมอาหาร", "FANCY.BK": "สินค้าอุตสาหกรรม", "FENIX.BK": "สินค้าอุตสาหกรรม", "FMT.BK": "สินค้าอุตสาหกรรม", "FN.BK": "บริการ", "FNS.BK": "ธุรกิจการเงิน", "FORTH.BK": "เทคโนโลยี", "FPI.BK": "สินค้าอุตสาหกรรม", "FPT.BK": "อสังหาริมทรัพย์และก่อสร้าง", "FSMART.BK": "บริการ", "FVC.BK": "บริการ",
+        "GABLE.BK": "เทคโนโลยี", "FVC.BK": "บริการ", "GBX.BK": "ธุรกิจการเงิน", "GC.BK": "ทรัพยากร", "GCAP.BK": "ธุรกิจการเงิน", "GEL.BK": "อสังหาริมทรัพย์และก่อสร้าง", "GFPT.BK": "เกษตรและอุตสาหกรรมอาหาร", "GGC.BK": "ทรัพยากร", "GIFT.BK": "เกษตรและอุตสาหกรรมอาหาร", "GJ.BK": "สินค้าอุตสาหกรรม", "GLOBAL.BK": "บริการ", "GLOCON.BK": "เกษตรและอุตสาหกรรมอาหาร", "GLOW.BK": "ทรัพยากร", "GPSC.BK": "ทรัพยากร", "GRAMMY.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "GULF.BK": "ทรัพยากร", "GUNKUL.BK": "ทรัพยากร", "GYT.BK": "สินค้าอุตสาหกรรม", "HANA.BK": "เทคโนโลยี", "HENG.BK": "ธุรกิจการเงิน", "HMPRO.BK": "บริการ", "HTC.BK": "เกษตรและอุตสาหกรรมอาหาร", "HTECH.BK": "สินค้าอุตสาหกรรม", "HUMAN.BK": "เทคโนโลยี", "HYDB.BK": "บริการ", "I2.BK": "เทคโนโลยี", "ICN.BK": "เทคโนโลยี", "IFEC.BK": "ทรัพยากร", "ILINK.BK": "เทคโนโลยี", "ILM.BK": "บริการ", "IMH.BK": "บริการ", "INET.BK": "เทคโนโลยี", "INGRS.BK": "สินค้าอุตสาหกรรม", "INSET.BK": "เทคโนโลยี", "INTUCH.BK": "เทคโนโลยี", "IRC.BK": "สินค้าอุตสาหกรรม", "IRPC.BK": "ทรัพยากร", "IT.BK": "บริการ", "ITD.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ITI.BK": "บริการ", "ITEL.BK": "เทคโนโลยี", "J.BK": "อสังหาริมทรัพย์และก่อสร้าง", " JAS.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "JCK.BK": "อสังหาริมทรัพย์และก่อสร้าง", "JCKH.BK": "บริการ", "JDF.BK": "เกษตรและอุตสาหกรรมอาหาร", "JKN.BK": "บริการ", "JMART.BK": "บริการ", "JMT.BK": "ธุรกิจการเงิน", "JR.BK": "บริการ", "JTS.BK": "เทคโนโลยี", "JUBILE.BK": "บริการ", "JUTHA.BK": "บริการ",
+        "KAMART.BK": "บริการ", "KBANK.BK": "ธุรกิจการเงิน", "KBS.BK": "เกษตรและอุตสาหกรรมอาหาร", "KCAR.BK": "บริการ", "KCE.BK": "เทคโนโลยี", "KEX.BK": "บริการ", "KGI.BK": "ธุรกิจการเงิน", "KKP.BK": "ธุรกิจการเงิน", "KSL.BK": "เกษตรและอุตสาหกรรมอาหาร", "KTB.BK": "ธุรกิจการเงิน", "KTC.BK": "ธุรกิจการเงิน", "KTIS.BK": "เกษตรและอุตสาหกรรมอาหาร", "KUN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "KWM.BK": "สินค้าอุตสาหกรรม", "KYE.BK": "สินค้าอุตสาหกรรม", "L&E.BK": "สินค้าอุตสาหกรรม", "LALIN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "LANNA.BK": "ทรัพยากร", "LH.BK": "อสังหาริมทรัพย์และก่อสร้าง", "LHFG.BK": "ธุรกิจการเงิน", "LHK.BK": "สินค้าอุตสาหกรรม", "LIT.BK": "ธุรกิจการเงิน", "LOXLEY.BK": "บริการ", "LPH.BK": "บริการ", "LPN.BK": "อสังหาริมทรัพย์และก่อสร้าง", "LRH.BK": "บริการ", "LST.BK": "เกษตรและอุตสาหกรรมอาหาร", "M.BK": "บริการ", "MAJOR.BK": "บริการ", "M-CHAI.BK": "บริการ", "MALEE.BK": "เกษตรและอุตสาหกรรมอาหาร", "MASTER.BK": "บริการ", "MATI.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "MBK.BK": "บริการ", "MC.BK": "สินค้าอุตสาหกรรม", "M-DAE.BK": "บริการ", "MDX.BK": "อสังหาริมทรัพย์และก่อสร้าง", "MEB.BK": "บริการ", "MEGA.BK": "บริการ", "METCO.BK": "สินค้าอุตสาหกรรม", "MFC.BK": "ธุรกิจการเงิน", "MGC.BK": "บริการ", "MGI.BK": "บริการ", "MINT.BK": "บริการ", "MK.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ML.BK": "ธุรกิจการเงิน", "MOONG.BK": "สินค้าอุตสาหกรรม", "MPIC.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "MSC.BK": "เทคโนโลยี", "MTC.BK": "ธุรกิจการเงิน", "MTI.BK": "ธุรกิจการเงิน", "MTW.BK": "สินค้าอุตสาหกรรม", "MULTI.BK": "บริการ", "MVC.BK": "สินค้าอุตสาหกรรม", "NC.BK": "สินค้าอุตสาหกรรม", "NCH.BK": "อสังหาริมทรัพย์และก่อสร้าง", "NCL.BK": "บริการ", "NEO.BK": "สินค้าอุตสาหกรรม", "NER.BK": "เกษตรและอุตสาหกรรมอาหาร", "NETBAY.BK": "เทคโนโลยี", "NEW.BK": "บริการ", "NEX.BK": "บริการ", "NOBLE.BK": "อสังหาริมทรัพย์และก่อสร้าง", "NOVA.BK": "สินค้าอุตสาหกรรม", "NPK.BK": "เกษตรและอุตสาหกรรมอาหาร", "NSL.BK": "เกษตรและอุตสาหกรรมอาหาร", "NTV.BK": "บริการ", "NUSA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "NVD.BK": "อสังหาริมทรัพย์และก่อสร้าง", "NYT.BK": "บริการ",
+        "O.BK": "บริการ", "OCB.BK": "ธุรกิจการเงิน", "OISHI.BK": "เกษตรและอุตสาหกรรมอาหาร", "OKJ.BK": "บริการ", "ORI.BK": "อสังหาริมทรัพย์และก่อสร้าง", "OSP.BK": "เกษตรและอุตสาหกรรมอาหาร", "OTO.BK": "เทคโนโลยี", "PAC.BK": "สินค้าอุตสาหกรรม", "PACO.BK": "สินค้าอุตสาหกรรม", "PAP.BK": "สินค้าอุตสาหกรรม", "PATH.BK": "บริการ", "PB.BK": "เกษตรและอุตสาหกรรมอาหาร", "PCSGH.BK": "สินค้าอุตสาหกรรม", "PDG.BK": "สินค้าอุตสาหกรรม", "PDI.BK": "ทรัพยากร", "PEACE.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PERM.BK": "สินค้าอุตสาหกรรม", "PF.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PHG.BK": "บริการ", "PJW.BK": "สินค้าอุตสาหกรรม", "PLANB.BK": "บริการ", "PLAT.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PLUS.BK": "เกษตรและอุตสาหกรรมอาหาร", "PM.BK": "เกษตรและอุตสาหกรรมอาหาร", "PMTA.BK": "เกษตรและอุตสาหกรรมอาหาร", "POLAR.BK": "อสังหาริมทรัพย์และก่อสร้าง", "POLY.BK": "สินค้าอุตสาหกรรม", "POPN.BK": "เกษตรและอุตสาหกรรมอาหาร", "PORT.BK": "บริการ", "POST.BK": "สื่อสิ่งพิมพ์และสื่อสาร", "PPPM.BK": "เกษตรและอุตสาหกรรมอาหาร", "PR9.BK": "บริการ", "PRAKIT.BK": "บริการ", "PRAPAT.BK": "บริการ", "PREB.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PRG.BK": "เกษตรและอุตสาหกรรมอาหาร", "PRM.BK": "บริการ", "PRO.BK": "สินค้าอุตสาหกรรม", "PROEN.BK": "เทคโนโลยี", "PSG.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PSH.BK": "อสังหาริมทรัพย์และก่อสร้าง", "PSI.BK": "สินค้าอุตสาหกรรม", "PSL.BK": "บริการ", "PSTC.BK": "ทรัพยากร", "PT.BK": "บริการ", "PTG.BK": "ทรัพยากร", "PTL.BK": "สินค้าอุตสาหกรรม", "PTT.BK": "ทรัพยากร", "PTTEP.BK": "ทรัพยากร", "PTTGC.BK": "ทรัพยากร", "PYLON.BK": "อสังหาริมทรัพย์และก่อสร้าง", "Q-CON.BK": "สินค้าอุตสาหกรรม", "QH.BK": "อสังหาริมทรัพย์และก่อสร้าง", "QLT.BK": "สินค้าอุตสาหกรรม", "QTC.BK": "สินค้าอุตสาหกรรม", "RABBIT.BK": "ธุรกิจการเงิน", "RATCH.BK": "ทรัพยากร", "RBF.BK": "เกษตรและอุตสาหกรรมอาหาร", "RCL.BK": "บริการ", "RJH.BK": "บริการ", "ROJNA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "RP.BK": "บริการ", "RPC.BK": "ทรัพยากร", "RPH.BK": "บริการ", "RS.BK": "บริการ", "RT.BK": "อสังหาริมทรัพย์และก่อสร้าง", "RTC.BK": "บริการ", "RWI.BK": "สินค้าอุตสาหกรรม",
+        "S.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SABINA.BK": "สินค้าอุตสาหกรรม", "SABUY.BK": "บริการ", "SAF.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SAFE.BK": "บริการ", "SAK.BK": "ธุรกิจการเงิน", "SAMCO.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SAMART.BK": "เทคโนโลยี", "SAMTEL.BK": "เทคโนโลยี", "SAPPE.BK": "เกษตรและอุตสาหกรรมอาหาร", "SAT.BK": "สินค้าอุตสาหกรรม", "SBNEXT.BK": "บริการ", "SC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SCAP.BK": "ธุรกิจการเงิน", "SCB.BK": "ธุรกิจการเงิน", "SCC.BK": "สินค้าอุตสาหกรรม", "SCCC.BK": "สินค้าอุตสาหกรรม", "SCG.BK": "บริการ", "SCGD.BK": "สินค้าอุตสาหกรรม", "SCI.BK": "เทคโนโลยี", "SCN.BK": "ทรัพยากร", "SCP.BK": "สินค้าอุตสาหกรรม", "SDC.BK": "เทคโนโลยี", "SE-ED.BK": "บริการ", "SEAFCO.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SECURE.BK": "เทคโนโลยี", "SENA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SF.BK": "บริการ", "SFT.BK": "สินค้าอุตสาหกรรม", "SGC.BK": "ธุรกิจการเงิน", "SGP.BK": "ทรัพยากร", "SGT.BK": "ธุรกิจการเงิน", "SHR.BK": "บริการ", "SICT.BK": "เทคโนโลยี", "SIMAT.BK": "เทคโนโลยี", "SINO.BK": "บริการ", "SINGER.BK": "ธุรกิจการเงิน", "SIRI.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SIS.BK": "เทคโนโลยี", "SISB.BK": "บริการ", "SK.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SKN.BK": "เกษตรและอุตสาหกรรมอาหาร", "SKR.BK": "บริการ", "SKY.BK": "บริการ", "SLM.BK": "บริการ", "SM.BK": "บริการ", "SMART.BK": "สินค้าอุตสาหกรรม", "SMD.BK": "บริการ", "SMIT.BK": "สินค้าอุตสาหกรรม", "SMPC.BK": "สินค้าอุตสาหกรรม", "SNC.BK": "สินค้าอุตสาหกรรม", "SO.BK": "บริการ", "SOLAR.BK": "ทรัพยากร", "SONIC.BK": "บริการ", "SORKON.BK": "เกษตรและอุตสาหกรรมอาหาร", "SPA.BK": "บริการ", "SPALI.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SPc.BK": "สินค้าอุตสาหกรรม", "SPCG.BK": "ทรัพยากร", "SPHI.BK": "บริการ", "SPI.BK": "สินค้าอุตสาหกรรม", "SPRC.BK": "ทรัพยากร", "SPSU.BK": "สินค้าอุตสาหกรรม", "SPVI.BK": "บริการ", "SQ.BK": "บริการ", "SR.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SRICHA.BK": "บริการ", "SSP.BK": "ทรัพยากร", "SSPF.BK": "กองทุนรวมอสังหาริมทรัพย์และกองทรัสต์เพื่อการลงทุนในอสังหาริมทรัพย์", "SST.BK": "บริการ", "STA.BK": "เกษตรและอุตสาหกรรมอาหาร", 
+        "STANLY.BK": "สินค้าอุตสาหกรรม", "STAR.BK": "สินค้าอุตสาหกรรม", "STARK.BK": "สินค้าอุตสาหกรรม", "STC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "STEC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "STGT.BK": "เกษตรและอุตสาหกรรมอาหาร", "STPI.BK": "สินค้าอุตสาหกรรม", "SUC.BK": "สินค้าอุตสาหกรรม", "SUN.BK": "เกษตรและอุตสาหกรรมอาหาร", "SVR.BK": "อสังหาริมทรัพย์และก่อสร้าง", "SVT.BK": "บริการ", "SYNEX.BK": "เทคโนโลยี", "SYNTEC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "T.BK": "บริการ", "TAE.BK": "เกษตรและอุตสาหกรรมอาหาร", "TAKUNI.BK": "บริการ", "TASCO.BK": "สินค้าอุตสาหกรรม", "TBN.BK": "เทคโนโลยี", "TC.BK": "เกษตรและอุตสาหกรรมอาหาร", "TCAP.BK": "ธุรกิจการเงิน", "TCC.BK": "สินค้าอุตสาหกรรม", "TCCC.BK": "เกษตรและอุตสาหกรรมอาหาร", "TCJ.BK": "สินค้าอุตสาหกรรม", "TCM.BK": "สินค้าอุตสาหกรรม", "TFG.BK": "เกษตรและอุตสาหกรรมอาหาร", "TFM.BK": "เกษตรและอุตสาหกรรมอาหาร", "TFMAMA.BK": "เกษตรและอุตสาหกรรมอาหาร", "TGPRO.BK": "สินค้าอุตสาหกรรม", "TH.BK": "ธุรกิจการเงิน", "THAI.BK": "บริการ", "THANA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "THANI.BK": "ธุรกิจการเงิน", "THG.BK": "บริการ", "THIP.BK": "สินค้าอุตสาหกรรม", "TIDLOR.BK": "ธุรกิจการเงิน", "TIPH.BK": "ธุรกิจการเงิน", "TISCO.BK": "ธุรกิจการเงิน", "TK.BK": "ธุรกิจการเงิน", "TKN.BK": "เกษตรและอุตสาหกรรมอาหาร", "TKS.BK": "บริการ", "TKT.BK": "สินค้าอุตสาหกรรม", "TLI.BK": "ธุรกิจการเงิน", "TM.BK": "บริการ", "TMC.BK": "สินค้าอุตสาหกรรม", "TMD.BK": "สินค้าอุตสาหกรรม", "TMILL.BK": "เกษตรและอุตสาหกรรมอาหาร", "TMT.BK": "สินค้าอุตสาหกรรม", "TNDT.BK": "บริการ", "TNH.BK": "บริการ", "TNP.BK": "บริการ", "TNR.BK": "เกษตรและอุตสาหกรรมอาหาร", "TOA.BK": "สินค้าอุตสาหกรรม", "TOG.BK": "สินค้าอุตสาหกรรม", "TOP.BK": "ทรัพยากร", "TPBI.BK": "สินค้าอุตสาหกรรม", "TPCH.BK": "ทรัพยากร", "TPIPL.BK": "สินค้าอุตสาหกรรม", "TPIPP.BK": "ทรัพยากร", "TPL.BK": "บริการ", "TPOLY.BK": "อสังหาริมทรัพย์และก่อสร้าง", "TPP.BK": "สินค้าอุตสาหกรรม", "TPS.BK": "เทคโนโลยี", "TQM.BK": "ธุรกิจการเงิน", "TR.BK": "บริการ", "TRC.BK": "อสังหาริมทรัพย์และก่อสร้าง", "TRP.BK": "บริการ", "TRUE.BK": "สื่อสิ่งพิมพ์และสื่อสาร", 
+        "TSE.BK": "ทรัพยากร", "TSI.BK": "ธุรกิจการเงิน", " TSR.BK": "บริการ", "TSTE.BK": "เกษตรและอุตสาหกรรมอาหาร", "TSTH.BK": "สินค้าอุตสาหกรรม", "TTA.BK": "บริการ", "TTB.BK": "ธุรกิจการเงิน", "TTCL.BK": "บริการ", "TTW.BK": "ทรัพยากร", "TU.BK": "เกษตรและอุตสาหกรรมอาหาร", "TVD.BK": "บริการ", "TVDH.BK": "บริการ", "TVO.BK": "เกษตรและอุตสาหกรรมอาหาร", "TWPC.BK": "เกษตรและอุตสาหกรรมอาหาร", "TYCN.BK": "สินค้าอุตสาหกรรม", "UAC.BK": "ทรัพยากร", "UBIS.BK": "สินค้าอุตสาหกรรม", "UEC.BK": "สินค้าอุตสาหกรรม", "UMC.BK": "สินค้าอุตสาหกรรม", "UNIQ.BK": "อสังหาริมทรัพย์และก่อสร้าง", "UPF.BK": "ธุรกิจการเงิน", "UPOIC.BK": "เกษตรและอุตสาหกรรมอาหาร", "UV.BK": "อสังหาริมทรัพย์และก่อสร้าง", "UVAN.BK": "เกษตรและอุตสาหกรรมอาหาร", "VCOM.BK": "เทคโนโลยี", "VGI.BK": "บริการ", "VIBHA.BK": "บริการ", "VL.BK": "บริการ", "VNG.BK": "สินค้าอุตสาหกรรม", "W.BK": "อสังหาริมทรัพย์และก่อสร้าง", "WACOAL.BK": "สินค้าอุตสาหกรรม", "WAVE.BK": "บริการ", "WHA.BK": "อสังหาริมทรัพย์และก่อสร้าง", "WHAUP.BK": "ทรัพยากร", "WICE.BK": "บริการ", "WIN.BK": "สินค้าอุตสาหกรรม", "WINMED.BK": "บริการ", "WINNER.BK": "เกษตรและอุตสาหกรรมอาหาร", "WORK.BK": "บริการ", "WORLD.BK": "ธุรกิจการเงิน", "WP.BK": "ทรัพยากร", "XO.BK": "เกษตรและอุตสาหกรรมอาหาร", "XPG.BK": "ธุรกิจการเงิน", "YONG.BK": "อสังหาริมทรัพย์และก่อสร้าง", "ZEN.BK": "บริการ", "ZIGA.BK": "สินค้าอุตสาหกรรม",
+    }
+    
+    # เผื่อกรณีพิมพ์หุ้นมาแบบไม่มี .BK ให้ลองเช็คแบบเติม .BK ดูด้วย
+    if ticker not in sector_dict and not ticker.endswith(".BK"):
+        if f"{ticker}.BK" in sector_dict:
+            return sector_dict[f"{ticker}.BK"]
+            
+    return sector_dict.get(ticker, "General / Unspecified")
     
 def get_pe_ratio(ticker_obj):
     try:
@@ -1923,6 +1945,110 @@ def main():
                         display_performance_dashboard()
                     except Exception as e:
                         st.warning(f"ยังไม่พบข้อมูล Portfolio_History หรือเกิดข้อผิดพลาดในการโหลด: {e}")
+
+                    # --- 2. ส่วนวิเคราะห์ Sector Performance (แก้ไขป้องกัน Error ประเภทข้อมูล) ---
+                    journal_df = pd.DataFrame(st.session_state.get('journal_data', []))
+                    closed_trades = journal_df[journal_df['สถานะ'] == 'Closed (ขายแล้ว)'] if not journal_df.empty else pd.DataFrame()
+                
+                    if not journal_df.empty:
+                        sector_data_list = []
+                        for idx, row in journal_df.iterrows():
+                            ticker = row.get('หุ้น', 'UNKNOWN')
+                            
+                            # ป้องกันค่าที่เป็น String หรือค่าว่าง ให้แปลงเป็น float ทันที
+                            try:
+                                profit = float(row.get('กำไร/ขาดทุน (บาท)', 0))
+                            except (ValueError, TypeError):
+                                profit = 0.0
+                                
+                            try:
+                                cost = float(row.get('ต้นทุน (บาท)', 0))
+                            except (ValueError, TypeError):
+                                cost = 0.0
+                                
+                            sector = row.get('Sector', 'General / Unspecified')
+                            if pd.isna(sector) or str(sector).strip() == '': 
+                                sector = 'General / Unspecified'
+                                
+                            sector_data_list.append({
+                                'Sector': str(sector).strip(),
+                                'Ticker': str(ticker).strip(),
+                                'Net_Profit': profit,
+                                'Invested_Cost': cost
+                            })
+                            
+                        if len(sector_data_list) > 0:
+                            df_sector_source = pd.DataFrame(sector_data_list)
+                            
+                            # บังคับแปลงชนิดข้อมูลให้เป็นตัวเลขชัวร์ๆ อีกรอบก่อน Groupby
+                            df_sector_source['Net_Profit'] = pd.to_numeric(df_sector_source['Net_Profit'], errors='coerce').fillna(0)
+                            df_sector_source['Invested_Cost'] = pd.to_numeric(df_sector_source['Invested_Cost'], errors='coerce').fillna(0)
+                            
+                            df_sector_summary = df_sector_source.groupby('Sector', as_index=False).agg({
+                                'Net_Profit': 'sum',
+                                'Invested_Cost': 'sum',
+                                'Ticker': lambda x: ', '.join(x.unique())
+                            })
+                            
+                            df_sector_summary['Return_Pct'] = df_sector_summary.apply(
+                                lambda r: (r['Net_Profit'] / r['Invested_Cost'] * 100) if r['Invested_Cost'] > 0 else 0, 
+                                axis=1
+                            )
+                            df_sector_summary = df_sector_summary.sort_values(by='Net_Profit', ascending=False)
+                
+                            # 📊 ส่วน กราฟแท่ง (Bar Chart)
+                            st.markdown("##### 📊 กำไร/ขาดทุนสะสมแยกตามกลุ่มอุตสาหกรรม")
+                            fig_bar = px.bar(
+                                df_sector_summary, 
+                                x='Sector', 
+                                y='Net_Profit', 
+                                text=df_sector_summary['Net_Profit'].apply(lambda x: f"{x:,.2f} ฿"), 
+                                color='Net_Profit', 
+                                color_continuous_scale=['#EF5350', '#26A69A']
+                            )
+                            fig_bar.update_traces(textposition='outside')
+                            fig_bar.update_layout(
+                                xaxis_title="กลุ่มอุตสาหกรรม (Sector)", 
+                                yaxis_title="กำไร/ขาดทุนสุทธิ (บาท)", 
+                                height=400, 
+                                margin=dict(l=20, r=20, t=30, b=20), 
+                                coloraxis_showscale=False
+                            )
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                
+                            # 🗺️ ส่วน Treemap
+                            st.markdown("##### 🗺️ แผนผังแสดงสัดส่วนและผลงานพอร์ตตาม Sector (Treemap)")
+                            fig_tree = px.treemap(
+                                df_sector_summary, 
+                                path=['Sector'], 
+                                values='Invested_Cost', 
+                                color='Return_Pct', 
+                                color_continuous_scale='Tealrose', 
+                                color_continuous_midpoint=0, 
+                                custom_data=['Net_Profit', 'Return_Pct', 'Ticker']
+                            )
+                            fig_tree.update_traces(
+                                hovertemplate='<b>Sector:</b> %{label}<br><b>เงินลงทุนรวม:</b> %{value:,.2f} ฿<br><b>กำไร/ขาดทุน:</b> %{customdata[0]:,.2f} ฿<br><b>ผลตอบแทน:</b> %{customdata[1]:+.2f} %<br><b>หุ้นในกลุ่ม:</b> %{customdata[2]}'
+                            )
+                            fig_tree.update_layout(height=400, margin=dict(l=10, r=10, t=10, b=10))
+                            st.plotly_chart(fig_tree, use_container_width=True)
+                
+                            # 📋 ตารางสรุปข้อมูล Sector
+                            st.markdown("##### 📋 ตารางสรุปข้อมูลแยกตาม Sector")
+                            display_sector_df = df_sector_summary[['Sector', 'Invested_Cost', 'Net_Profit', 'Return_Pct', 'Ticker']].copy()
+                            display_sector_df.columns = ['กลุ่มอุตสาหกรรม (Sector)', 'เงินลงทุนรวม (บาท)', 'กำไร/ขาดทุนสุทธิ (บาท)', '% ผลตอบแทน', 'รายชื่อหุ้นที่เกี่ยวข้อง']
+                            st.dataframe(
+                                display_sector_df.style.format({
+                                    'เงินลงทุนรวม (บาท)': '{:,.2f}',
+                                    'กำไร/ขาดทุนสุทธิ (บาท)': '{:,.2f}',
+                                    '% ผลตอบแทน': '{:+.2f} %'
+                                }).set_properties(**{'text-align': 'right'}), 
+                                use_container_width=True
+                            )
+                        else:
+                            st.info("ยังไม่มีข้อมูลเพียงพอสำหรับการวิเคราะห์ Sector")
+                    else:
+                        st.info("ยังไม่มีข้อมูลรายการเทรดในระบบครับ")
                         
                     #######################################
                     # 1. จัดการข้อมูล (ยังคงตรรกะเดิมไว้)
@@ -2185,106 +2311,137 @@ def main():
             
             # 2. ฟอร์มเพิ่ม/ลดหุ้น
             with st.expander("🔄 บันทึกการซื้อขายหุ้น (อัปเดต Portfolio & Journal)"):
-                    # ตัด st.form ออก เพื่อให้หน้าจอตอบสนองแบบ Real-time เวลาเปลี่ยนสถานะ
-                    col1, col2 = st.columns(2)
+                col1, col2 = st.columns(2)
+                
+                portfolio_stocks = [item['หุ้น'] for item in st.session_state.my_portfolio] if "my_portfolio" in st.session_state else []
+                
+                with col1:
+                    options = ["  "] + portfolio_stocks
                     
-                    portfolio_stocks = [item['หุ้น'] for item in st.session_state.my_portfolio] if "my_portfolio" in st.session_state else []
-                    
-                    with col1:
-                        options = ["  "] + portfolio_stocks
-                        select_ticker = st.selectbox("เลือกหุ้นจากพอร์ต:", options, key="journal_select_ticker")
-                        p_ticker = st.text_input("ชื่อหุ้น:", key="journal_p_ticker") if select_ticker == "  " else select_ticker
-                        
-                        p_status = st.selectbox("สถานะรายการ:", ["Open (กำลังถือ)", "Closed (ขายแล้ว)"], key="journal_p_status")
-                        
-                        # เมื่อเปลี่ยนสถานะเป็น Closed จะแสดงช่องวันที่ซื้อและวันที่ขายให้กรอกคู่กันทันที
-                        if p_status == "Closed (ขายแล้ว)":
-                            p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
-                            p_sell_date = st.date_input("📅 วันที่ขายจริง (วันที่ทำรายการ):", key="journal_p_sell_date")
-                        else:
-                            p_buy_date = st.date_input("📅 วันที่ทำรายการซื้อ:", key="journal_open_date")
-                            p_sell_date = None
-                        
-                    with col2:
-                        p_type = st.selectbox("ประเภท:", ["ซื้อ (Buy)", "ขายทำกำไร (Take Profit)", "ขายตัดขาดทุน (Stop Loss)"], key="journal_p_type")
-                        p_result = st.number_input("กำไร/ขาดทุน (บาท):", step=100.0, format="%.2f", help="กรอกแค่ตัวเลข ระบบจะใส่เครื่องหมายให้เอง", key="journal_p_result")
-                        p_price = st.number_input("ราคาต่อหุ้น:", min_value=0.01, step=0.05, format="%.2f", key="journal_p_price")
-                        p_qty = st.number_input("จำนวนหุ้น:", min_value=1, step=100, key="journal_p_qty")
-                        p_comm = st.number_input("ค่าธรรมเนียม:", min_value=0.0, step=1.0, key="journal_p_comm")
-                        
-                    p_reason = st.text_area("เหตุผล/กลยุทธ์:", key="journal_p_reason")
-                    submitted = st.button("ยืนยันรายการบันทึก", type="primary")
-                    
-                    if submitted:
-                        if not p_ticker or p_ticker.strip() == "":
-                            st.error("กรุณาระบุชื่อหุ้นให้เรียบร้อยครับ")
-                        else:
-                            total_val = (p_qty * p_price)
-                            ticker_upper = p_ticker.upper()
-                            
-                            # --- Logic อัตโนมัติ: ถ้าเป็น Stop Loss หรือ ขาดทุน ให้บังคับเป็นค่าลบ ---
-                            final_result = float(p_result)
-                            if "Stop Loss" in p_type or "ขาดทุน" in p_status:
-                                final_result = -abs(final_result) 
+                    # 🌟 สร้างฟังก์ชัน Callback สำหรับอัปเดต Sector อัตโนมัติเมื่อเปลี่ยนตัวเลือกหุ้น
+                    def update_sector_on_select():
+                        selected = st.session_state.journal_select_ticker
+                        if selected != "  ":
+                            # 1. เช็คจากพอร์ตก่อน
+                            matched_item = next((item for item in st.session_state.my_portfolio if item.get('หุ้น') == selected), None)
+                            if matched_item and matched_item.get('Sector') and matched_item.get('Sector') != "General / Unspecified":
+                                st.session_state.journal_p_sector = matched_item['Sector']
                             else:
-                                final_result = abs(final_result)  
-                            
-                            # ใช้วันที่ทำรายการจริง (ถ้าขายใช้วันขาย ถ้าซื้อใช้วันซื้อ) ในการบันทึกกระแสเงินสด
-                            transaction_date_str = str(p_sell_date) if p_status == "Closed (ขายแล้ว)" else str(p_buy_date)
-                            
-                            # 1. จัดการข้อมูล Portfolio (อัปเดตสถานะเงินสดและหุ้น)
-                            found_idx = next((i for i, item in enumerate(st.session_state.my_portfolio) if item['หุ้น'] == ticker_upper), -1)
-                            
-                            if "ซื้อ" in p_type and p_status != "Closed (ขายแล้ว)":
-                                log_cash_transaction(date=transaction_date_str, trans_type="ซื้อหุ้น " + ticker_upper, amount=-(total_val + p_comm), note=f"ซื้อ {p_qty} หุ้น ที่ราคา {p_price}")
-                                st.session_state.cash_balance -= (total_val + p_comm)
-                                
-                                if found_idx != -1:
-                                    old = st.session_state.my_portfolio[found_idx]
-                                    new_shares = old['shares'] + p_qty
-                                    new_cost = ((old['shares'] * old['avg_price']) + total_val) / new_shares
-                                    st.session_state.my_portfolio[found_idx] = {'หุ้น': ticker_upper, 'shares': new_shares, 'avg_price': new_cost}
-                                else:
-                                    st.session_state.my_portfolio.append({'หุ้น': ticker_upper, 'shares': p_qty, 'avg_price': p_price})
-                            
-                            else: # กรณีขาย / ปิดสถานะ
-                                log_cash_transaction(date=transaction_date_str, trans_type="ขายหุ้น " + ticker_upper, amount=(total_val - p_comm), note=f"ขาย {p_qty} หุ้น ที่ราคา {p_price}")
-                                st.session_state.cash_balance += (total_val - p_comm)
-                                
-                                if found_idx != -1:
-                                    st.session_state.my_portfolio[found_idx]['shares'] -= p_qty
-                                    if st.session_state.my_portfolio[found_idx]['shares'] <= 0:
-                                        st.session_state.my_portfolio.pop(found_idx)
-                            
-                            # 2. เพิ่มข้อมูลเข้า Journal (บันทึกแยกวันที่ซื้อและวันที่ขายลง Google Sheets ให้ตรงช่องเป๊ะๆ)
-                            new_entry = {
-                                "วันที่": transaction_date_str, 
-                                "วันที่ซื้อ": str(p_buy_date),
-                                "วันที่ขาย": str(p_sell_date) if p_status == "Closed (ขายแล้ว)" else "",
-                                "หุ้น": ticker_upper,
-                                "สถานะ": p_status,
-                                "ประเภท": p_type,
-                                "กำไร/ขาดทุน (บาท)": final_result,
-                                "ต้นทุน (บาท)": total_val,
-                                "ราคาหุ้นที่ซื้อ (บาท/หุ้น)": p_price,
-                                "จำนวนหุ้นที่ซื้อ": p_qty,
-                                "เหตุผล": p_reason
-                            }
-                            st.session_state.journal_data.append(new_entry)
-                            
-                            # 3. บันทึกลง Google Sheets และอัปเดตหน้าจอ
-                            save_portfolio()
-                            save_journal()
-                            save_cash_balance(st.session_state.cash_balance)
-                            
-                            total_stock_value = sum([item['shares'] * item.get('current_price', item['avg_price']) for item in st.session_state.my_portfolio]) if "my_portfolio" in st.session_state else 0
-                            total_equity = st.session_state.cash_balance + total_stock_value
-                            
-                            save_portfolio_snapshot()
-                            
-                            st.success(f"บันทึก {ticker_upper} สำเร็จ! (กำไร/ขาดทุน: {final_result:,.2f} ฿)")
-                            st.rerun()
+                                # 2. ถ้าไม่มีในพอร์ต ดึงจาก Dictionary A-Z
+                                st.session_state.journal_p_sector = get_sector_from_mapping(selected)
+                        else:
+                            st.session_state.journal_p_sector = "General / Unspecified"
+
+                    select_ticker = st.selectbox(
+                        "เลือกหุ้นจากพอร์ต:", 
+                        options, 
+                        key="journal_select_ticker",
+                        on_change=update_sector_on_select
+                    )
+                    
+                    # กำหนดค่าเริ่มต้นของ Sector ตอนโหลดครั้งแรก
+                    if "journal_p_sector" not in st.session_state:
+                        st.session_state.journal_p_sector = "General / Unspecified"
+
+                    if select_ticker != "  ":
+                        p_ticker = select_ticker
+                    else:
+                        p_ticker = st.text_input("ชื่อหุ้น:", key="journal_p_ticker")
+                        # ถ้าพิมพ์ชื่อหุ้นใหม่เอง ให้เช็คจาก Dictionary แล้วอัปเดตลงช่อง Sector ทันที
+                        if p_ticker:
+                            st.session_state.journal_p_sector = get_sector_from_mapping(p_ticker)
+
+                    # ช่องกรอก Sector ที่ผูกกับ st.session_state.journal_p_sector โดยตรง
+                    p_sector = st.text_input("กลุ่มอุตสาหกรรม (Sector):", key="journal_p_sector")
+                    
+                    p_status = st.selectbox("สถานะรายการ:", ["Open (กำลังถือ)", "Closed (ขายแล้ว)"], key="journal_p_status")
+                    
+                    if p_status == "Closed (ขายแล้ว)":
+                        p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
+                        p_sell_date = st.date_input("📅 วันที่ขายจริง (วันที่ทำรายการ):", key="journal_p_sell_date")
+                    else:
+                        p_buy_date = st.date_input("📅 วันที่ทำรายการซื้อ:", key="journal_open_date")
+                        p_sell_date = None
+                    
+                with col2:
+                    p_type = st.selectbox("ประเภท:", ["ซื้อ (Buy)", "ขายทำกำไร (Take Profit)", "ขายตัดขาดทุน (Stop Loss)"], key="journal_p_type")
+                    p_result = st.number_input("กำไร/ขาดทุน (บาท):", step=100.0, format="%.2f", help="กรอกแค่ตัวเลข ระบบจะใส่เครื่องหมายให้เอง", key="journal_p_result")
+                    p_price = st.number_input("ราคาต่อหุ้น:", min_value=0.01, step=0.05, format="%.2f", key="journal_p_price")
+                    p_qty = st.number_input("จำนวนหุ้น:", min_value=1, step=100, key="journal_p_qty")
+                    p_comm = st.number_input("ค่าธรรมเนียม:", min_value=0.0, step=1.0, key="journal_p_comm")
+                    
+                p_reason = st.text_area("เหตุผล/กลยุทธ์:", key="journal_p_reason")
+                submitted = st.button("ยืนยันรายการบันทึก", type="primary")
+                
+                if submitted:
+                    if not p_ticker or p_ticker.strip() == "":
+                        st.error("กรุณาระบุชื่อหุ้นให้เรียบร้อยครับ")
+                    else:
+                        total_val = (p_qty * p_price)
+                        ticker_upper = p_ticker.upper()
                         
+                        # Logic อัตโนมัติ: ถ้าเป็น Stop Loss หรือ ขาดทุน ให้บังคับเป็นค่าลบ
+                        final_result = float(p_result)
+                        if "Stop Loss" in p_type or "ขาดทุน" in p_status:
+                            final_result = -abs(final_result) 
+                        else:
+                            final_result = abs(final_result)  
+                        
+                        transaction_date_str = str(p_sell_date) if p_status == "Closed (ขายแล้ว)" else str(p_buy_date)
+                        
+                        # 1. จัดการข้อมูล Portfolio
+                        found_idx = next((i for i, item in enumerate(st.session_state.my_portfolio) if item['หุ้น'] == ticker_upper), -1)
+                        
+                        if "ซื้อ" in p_type and p_status != "Closed (ขายแล้ว)":
+                            log_cash_transaction(date=transaction_date_str, trans_type="ซื้อหุ้น " + ticker_upper, amount=-(total_val + p_comm), note=f"ซื้อ {p_qty} หุ้น ที่ราคา {p_price}")
+                            st.session_state.cash_balance -= (total_val + p_comm)
+                            
+                            if found_idx != -1:
+                                old = st.session_state.my_portfolio[found_idx]
+                                new_shares = old['shares'] + p_qty
+                                new_cost = ((old['shares'] * old['avg_price']) + total_val) / new_shares
+                                st.session_state.my_portfolio[found_idx] = {'หุ้น': ticker_upper, 'shares': new_shares, 'avg_price': new_cost, 'Sector': p_sector}
+                            else:
+                                st.session_state.my_portfolio.append({'หุ้น': ticker_upper, 'shares': p_qty, 'avg_price': p_price, 'Sector': p_sector})
+                        
+                        else: # กรณีขาย
+                            log_cash_transaction(date=transaction_date_str, trans_type="ขายหุ้น " + ticker_upper, amount=(total_val - p_comm), note=f"ขาย {p_qty} หุ้น ที่ราคา {p_price}")
+                            st.session_state.cash_balance += (total_val - p_comm)
+                            
+                            if found_idx != -1:
+                                st.session_state.my_portfolio[found_idx]['shares'] -= p_qty
+                                if st.session_state.my_portfolio[found_idx]['shares'] <= 0:
+                                    st.session_state.my_portfolio.pop(found_idx)
+                        
+                        # 2. เพิ่มข้อมูลเข้า Journal (รวม Sector)
+                        if "journal_data" not in st.session_state:
+                            st.session_state.journal_data = []
+                            
+                        new_entry = {
+                            "วันที่": transaction_date_str, 
+                            "วันที่ซื้อ": str(p_buy_date),
+                            "วันที่ขาย": str(p_sell_date) if p_status == "Closed (ขายแล้ว)" else "",
+                            "หุ้น": ticker_upper,
+                            "Sector": p_sector,
+                            "สถานะ": p_status,
+                            "ประเภท": p_type,
+                            "กำไร/ขาดทุน (บาท)": final_result,
+                            "ต้นทุน (บาท)": total_val,
+                            "ราคาหุ้นที่ซื้อ (บาท/หุ้น)": p_price,
+                            "จำนวนหุ้นที่ซื้อ": p_qty,
+                            "เหตุผล": p_reason
+                        }
+                        st.session_state.journal_data.append(new_entry)
+                        
+                        # 3. บันทึกข้อมูล
+                        save_portfolio()
+                        save_journal()
+                        save_cash_balance(st.session_state.cash_balance)
+                        save_portfolio_snapshot()
+                        
+                        st.success(f"บันทึก {ticker_upper} สำเร็จ! (กำไร/ขาดทุน: {final_result:,.2f} ฿)")
+                        st.rerun()
+                    
             # 3. ตารางแสดงพอร์ต (เชื่อมต่อ Google Sheets)
             st.divider()
             st.subheader("📊 สรุปพอร์ตการลงทุน")
@@ -2408,10 +2565,108 @@ def main():
                     fig_bar.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10))
                     st.plotly_chart(fig_bar, use_container_width=True)
                     st.markdown("<p style='text-align: center; font-size: 13px;'>กำไร/ขาดทุน เป็น THB และ %</p>", unsafe_allow_html=True)
-    
-            else:
-                st.info("ยังไม่มีข้อมูลหุ้นในพอร์ตโฟลิโอครับ")
-    
+
+                # --- ส่วนแดชบอร์ดวิเคราะห์ Sector Allocation ใน Tab Portfolio ---
+                st.divider()
+                st.subheader("🥧 การกระจายตัวของพอร์ตตามกลุ่มอุตสาหกรรม (Sector Allocation)")
+            
+                if not df_p.empty:
+                    # จัดกลุ่มรวมตาม Sector ของหุ้นในพอร์ตปัจจุบัน (ใช้ as_index=False และ reset_index เพื่อความชัวร์)
+                    df_port_sector = df_p.groupby('Sector', as_index=False).agg({
+                        'มูลค่าตลาด': 'sum',
+                        'มูลค่าต้นทุน': 'sum',
+                        'หุ้น': lambda x: ', '.join(x.unique())
+                    }).reset_index(drop=True)
+                    
+                    # 1. คำนวณสัดส่วน % ตาม "มูลค่าตลาด"
+                    total_market_val = df_port_sector['มูลค่าตลาด'].sum()
+                    if total_market_val > 0:
+                        df_port_sector['Market_Weight_Pct'] = (df_port_sector['มูลค่าตลาด'] / total_market_val) * 100
+                    else:
+                        df_port_sector['Market_Weight_Pct'] = 0.0
+            
+                    # 2. คำนวณสัดส่วน % ตาม "เงินลงทุน (ต้นทุน)"
+                    total_cost_val = df_port_sector['มูลค่าต้นทุน'].sum()
+                    if total_cost_val > 0:
+                        df_port_sector['Cost_Weight_Pct'] = (df_port_sector['มูลค่าต้นทุน'] / total_cost_val) * 100
+                    else:
+                        df_port_sector['Cost_Weight_Pct'] = 0.0
+                        
+                    # เรียงลำดับตามเงินลงทุนต้นทุนจากมากไปน้อย
+                    df_port_sector = df_port_sector.sort_values(by='มูลค่าต้นทุน', ascending=False).reset_index(drop=True)
+            
+                    # 📊 แบ่ง 2 คอลัมน์สำหรับกราฟโดนัท (เงินลงทุนต้นทุน VS มูลค่าตลาด)
+                    col_sec1, col_sec2 = st.columns(2)
+            
+                    with col_sec1:
+                        st.markdown("###### 🥧 สัดส่วนตามเงินลงทุน (Cost Weight)")
+                        fig_donut_cost = px.pie(
+                            df_port_sector,
+                            names='Sector',
+                            values='มูลค่าต้นทุน',
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.qualitative.Pastel
+                        )
+                        fig_donut_cost.update_traces(
+                            textinfo='percent+label',
+                            hovertemplate='<b>Sector:</b> %{label}<br><b>เงินลงทุนต้นทุน:</b> %{value:,.2f} ฿<br><b>สัดส่วนต้นทุน:</b> %{percent}'
+                        )
+                        fig_donut_cost.update_layout(
+                            height=380,
+                            margin=dict(l=10, r=10, t=40, b=40),
+                            showlegend=False
+                        )
+                        st.plotly_chart(fig_donut_cost, use_container_width=True)
+            
+                    with col_sec2:
+                        st.markdown("###### 🥧 สัดส่วนตามมูลค่าตลาด (Market Weight)")
+                        fig_donut_market = px.pie(
+                            df_port_sector,
+                            names='Sector',
+                            values='มูลค่าตลาด',
+                            hole=0.4,
+                            color_discrete_sequence=px.colors.qualitative.Set3
+                        )
+                        fig_donut_market.update_traces(
+                            textinfo='percent+label',
+                            hovertemplate='<b>Sector:</b> %{label}<br><b>มูลค่าตลาด:</b> %{value:,.2f} ฿<br><b>สัดส่วนตลาด:</b> %{percent}'
+                        )
+                        fig_donut_market.update_layout(
+                            height=380,
+                            margin=dict(l=10, r=10, t=40, b=40),
+                            showlegend=True
+                        )
+                        st.plotly_chart(fig_donut_market, use_container_width=True)
+            
+                    # 📋 ตารางสรุปน้ำหนักการลงทุนแต่ละกลุ่ม
+                    st.markdown("##### 📋 ตารางสรุปน้ำหนักการลงทุนแต่ละกลุ่มในพอร์ต")
+                    display_port_sector = df_port_sector[[
+                        'Sector', 'มูลค่าต้นทุน', 'Cost_Weight_Pct', 'มูลค่าตลาด', 'Market_Weight_Pct', 'หุ้น'
+                    ]].copy()
+                    
+                    display_port_sector.columns = [
+                        'กลุ่มอุตสาหกรรม (Sector)', 
+                        'เงินลงทุนต้นทุน (บาท)', 
+                        'สัดส่วนต้นทุน (%)', 
+                        'มูลค่าตลาดรวม (บาท)', 
+                        'สัดส่วนตลาด (%)', 
+                        'รายชื่อหุ้นในกลุ่ม'
+                    ]
+                    
+                    st.dataframe(
+                        display_port_sector.style.format({
+                            'เงินลงทุนต้นทุน (บาท)': '{:,.2f}',
+                            'สัดส่วนต้นทุน (%)': '{:.2f} %',
+                            'มูลค่าตลาดรวม (บาท)': '{:,.2f}',
+                            'สัดส่วนตลาด (%)': '{:.2f} %'
+                        }).set_properties(**{'text-align': 'right'}),
+                        use_container_width=True,
+                        hide_index=True  # เพิ่มคำสั่งนี้เพื่อซ่อนคอลัมน์ Index ที่เกินมาครับ
+                    )
+                            
+                else:
+                    st.info("ยังไม่มีข้อมูลหุ้นในพอร์ตปัจจุบันครับ")
+
         #########################
         with tab_journal:
             st.markdown("#### 📖 บันทึกผลการเทรด (Trading Journal)")
