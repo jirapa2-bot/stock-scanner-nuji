@@ -227,10 +227,16 @@ def load_data(sheet_name):
         st.error(f"โหลดข้อมูล {sheet_name} ไม่สำเร็จ: {e}")
         return pd.DataFrame()
         
-@st.cache_data(ttl=3600) # จำข้อมูลไว้ 1 ชม. ค่อยดึงใหม่
-info(ticker):
-    stock = yf.Ticker(ticker)
-    return stock.info  
+@st.cache_data(ttl=3600)
+def get_cached_stock_info(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        import time
+        time.sleep(0.5) 
+        return stock.info
+    except Exception as e:
+        print(f"Warning: ไม่สามารถดึงข้อมูลของ {ticker} ได้เนื่องจาก: {e}")
+        return {}
     
 def clear_and_save_data(df, sheet_name):
     try:
