@@ -1007,7 +1007,7 @@ if "my_portfolio" not in st.session_state:
 if "journal_data" not in st.session_state:
     load_journal()
 
-st.title("📈 Application NJ Wealth")
+st.title("📈 NJ Wealth")
 st.write("ระบบสแกนหุ้นพร้อมกราฟเปรียบเทียบความแข็งแกร่งกับตลาดภาพรวม (SET Index)")
 
 # จัดการ Session State เพื่อเก็บชื่อหุ้นที่เลือกไว้กลางระบบ
