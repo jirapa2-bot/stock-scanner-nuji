@@ -1143,7 +1143,7 @@ def main():
             st.markdown("#### 📊 วิเคราะห์กราฟทางเทคนิค (Technical Chart Analysis)")
             
             ################################
-            # 1. Slidebar (ตัวกรอง)
+            # 1. Sidebar (ตัวกรอง)
             ################################
             with st.sidebar.expander("⚙️ เมนูตัวกรองหุ้น", expanded=True):
                 max_pe = st.slider("1. ค่า P/E สูงสุด:", 5.0, 100.0, 100.0)
@@ -1165,30 +1165,38 @@ def main():
                     ]
                 )
             
-                # ตรวจสอบข้อมูลก่อนโชว์
-                if df_all_stocks is not None and not df_all_stocks.empty:
-                    # 1. เตรียมข้อมูลและทำความสะอาด
-                    filtered_df = df_all_stocks.copy()
-                    filtered_df.columns = filtered_df.columns.str.strip()
+            # ตรวจสอบข้อมูลก่อนโชว์
+            if df_all_stocks is not None and not df_all_stocks.empty:
+                # 1. เตรียมข้อมูลและทำความสะอาด
+                filtered_df = df_all_stocks.copy()
+                filtered_df.columns = filtered_df.columns.str.strip()
+                
+                # แปลงคอลัมน์ตัวเลข
+                numeric_cols = ['PE_Ratio', 'ปันผล_%', 'RSI_14', 'RS_Line']
+                for col in numeric_cols:
+                    if col in filtered_df.columns:
+                        filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce').fillna(0)
+                
+                # แปลงคอลัมน์ Boolean
+                bool_cols = ['Is_RS_Above_0', 'Is_3M_High', 'Is_6M_High', 'Is_52W_High']
+                for col in bool_cols:
+                    if col in filtered_df.columns:
+                        filtered_df[col] = filtered_df[col].astype(str).str.lower().str.strip() == 'true'
+                
+                # 2. กรองข้อมูลด้วย Slider ที่รับค่าจาก Sidebar อย่างถูกต้อง
+                if max_pe < 100:
+                    filtered_df = filtered_df[filtered_df['PE_Ratio'] <= max_pe]
                     
-                    # แปลงคอลัมน์ตัวเลข
-                    numeric_cols = ['PE_Ratio', 'ปันผล_%', 'RSI_14', 'RS_Line']
-                    for col in numeric_cols:
-                        if col in filtered_df.columns:
-                            filtered_df[col] = pd.to_numeric(filtered_df[col], errors='coerce').fillna(0)
-                    
-                    # แปลงคอลัมน์ Boolean (สำคัญมากสำหรับการกรองเงื่อนไข)
-                    bool_cols = ['Is_RS_Above_0', 'Is_3M_High', 'Is_6M_High', 'Is_52W_High']
-                    for col in bool_cols:
-                        if col in filtered_df.columns:
-                            filtered_df[col] = filtered_df[col].astype(str).str.lower().str.strip() == 'true'
-            
-                    # 2. กรองพื้นฐานด้วย Slider (จะกรองทับกันไปเรื่อยๆ)
-                    if max_pe < 100:
-                        filtered_df = filtered_df[filtered_df['PE_Ratio'] <= max_pe]
+                if min_dividend > 0:
                     filtered_df = filtered_df[filtered_df['ปันผล_%'] >= min_dividend]
-                    filtered_df = filtered_df[(filtered_df['RSI_14'] >= rsi_range[0]) & (filtered_df['RSI_14'] <= rsi_range[1])]
-            
+                    
+                filtered_df = filtered_df[(filtered_df['RSI_14'] >= rsi_range[0]) & (filtered_df['RSI_14'] <= rsi_range[1])]
+                
+                # แสดงผลตารางหุ้นที่ผ่านการกรองในแท็บวิเคราะห์กราฟ
+                st.dataframe(filtered_df, use_container_width=True)
+            else:
+                st.warning("⚠️ ไม่มีข้อมูลหุ้นสำหรับแสดงผลตัวกรอง")
+                    
                     # 3. กำหนดคอลัมน์พื้นฐานและ Sort
                     show_columns = ['Ticker', 'ราคาล่าสุด', 'RSI_14', 'RS_Line', 'PE_Ratio', 'ปันผล_%']
                     sort_by_col = 'Ticker'
