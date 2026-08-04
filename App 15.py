@@ -157,6 +157,17 @@ def calculate_tfex_result(entry, close, size, comm, Status):
         "Win_Lose": win_lose,
         "Points": round(points, 2)
     }
+
+# ฟังก์ชันสำหรับบันทึกยอดเงินสดคงเหลือลงไฟล์ (หรือ session_state)
+def save_cash_balance(balance):
+    try:
+        st.session_state.cash_balance = float(balance)
+        # ถ้าโปรแกรมของคุณมีการบันทึกไฟล์ cash balance ลง CSV หรือ JSON ด้วย สามารถเพิ่มโค้ดบันทึกตรงนี้ได้ครับ
+        # ตัวอย่างเช่น:
+        # pd.DataFrame([{"cash_balance": balance}]).to_csv("cash_balance.csv", index=False)
+    except Exception as e:
+        print(f"Error saving cash balance: {e}")
+        
 def save_data_to_sheet(new_df, sheet_name):
     try:
         client = get_gsheet_client()
@@ -2747,20 +2758,22 @@ def main():
 
         #########################
         with tab_dividend:
-                # กำหนดชื่อไฟล์สำหรับเก็บข้อมูลสำรอง
                 DATA_FILE = "dividend_database.csv"
                 
-                # 1. กำหนดตัวแปรและโหลดข้อมูลเดิมจากไฟล์ (ถ้ามี) มาใส่ session_state ตอนเริ่มต้นครั้งเดียว
+                # โหลดข้อมูลจากไฟล์ CSV เข้า session_state ทุกครั้งที่เปิดหรือรีเฟรชแอป
                 if "dividend_data" not in st.session_state:
                     if os.path.exists(DATA_FILE):
                         try:
                             df_saved = pd.read_csv(DATA_FILE)
-                            st.session_state.dividend_data = df_saved.to_dict('records')
+                            if not df_saved.empty:
+                                st.session_state.dividend_data = df_saved.to_dict('records')
+                            else:
+                                st.session_state.dividend_data = []
                         except Exception:
                             st.session_state.dividend_data = []
                     else:
                         st.session_state.dividend_data = []
-            
+                        
                 # ฟังก์ชันช่วยบันทึกข้อมูลลงไฟล์ CSV ทุกครั้งที่มีการเปลี่ยนแปลง
                 def save_dividend_data():
                     if st.session_state.dividend_data:
