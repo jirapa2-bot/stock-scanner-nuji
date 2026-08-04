@@ -1158,7 +1158,6 @@ def main():
 
     #############################
     with tab_chart:
-        st.markdown("#### 📊 วิเคราะห์กราฟทางเทคนิค (Technical Chart Analysis)")
         
         ################################
         # 1. Sidebar (ตัวกรอง)
