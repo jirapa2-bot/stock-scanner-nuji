@@ -202,7 +202,19 @@ def save_cash_to_gsheet(df):
         st.error(f"เกิดข้อผิดพลาดในการบันทึก Cash_Flow: {e}")
         return False        
 ####################
-
+@st.cache_data(ttl=3600)
+def get_cached_stock_info(ticker):
+    try:
+        stock = yf.Ticker(ticker)
+        # เพิ่มการหน่วงเวลาเล็กน้อยเพื่อลดโอกาสโดนบล็อก (Rate Limit)
+        import time
+        time.sleep(0.5) 
+        return stock.info
+    except Exception as e:
+        # หากโดน Rate Limit หรือเกิดข้อผิดพลาด ให้คืนค่า dict เปล่าแทนที่จะพัง
+        print(f"Warning: ไม่สามารถดึงข้อมูลของ {ticker} ได้เนื่องจาก: {e}")
+        return {}
+        
 @st.cache_data(ttl=60)
 def load_data(sheet_name):
     try:
@@ -216,7 +228,7 @@ def load_data(sheet_name):
         return pd.DataFrame()
         
 @st.cache_data(ttl=3600) # จำข้อมูลไว้ 1 ชม. ค่อยดึงใหม่
-def get_cached_stock_info(ticker):
+info(ticker):
     stock = yf.Ticker(ticker)
     return stock.info  
     
