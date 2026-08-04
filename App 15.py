@@ -1197,50 +1197,50 @@ def main():
             else:
                 st.warning("⚠️ ไม่มีข้อมูลหุ้นสำหรับแสดงผลตัวกรอง")
                     
-                    # 3. กำหนดคอลัมน์พื้นฐานและ Sort
-                    show_columns = ['Ticker', 'ราคาล่าสุด', 'RSI_14', 'RS_Line', 'PE_Ratio', 'ปันผล_%']
-                    sort_by_col = 'Ticker'
-                    ascending_sort = True
-            
-                    # 4. กรองตามหน้าเทรด (Strategy)
-                    if strategy_option == "⭐ RS Line ตัดเส้น 0 ขึ้นมาแล้ว":
-                        filtered_df = filtered_df[filtered_df['Is_RS_Above_0'] == True]
-                        show_columns.append('ตัดเส้น0ขึ้นมาแล้ว(วัน)')
-                        sort_by_col, ascending_sort = 'ตัดเส้น0ขึ้นมาแล้ว(วัน)', True
-                    
-                    elif strategy_option == "📈 RS Line ทำจุดสูงสุดใหม่ (RS New High)":
-                        filtered_df = filtered_df[filtered_df['RS_Line'] >= filtered_df['RS_Line_50D_Max']]
-                        sort_by_col, ascending_sort = 'RS_Line', False
-                    
-                    elif strategy_option == "🔥 RS Line ใกล้จะตัด 0 (จ่อระเบิด)":
-                        time_map = {"3 เดือน (60 วัน)": 60, "6 เดือน (120 วัน)": 120, "1 ปี (240 วัน)": 240}
-                        time_choice = st.sidebar.selectbox("เลือกระยะเวลาจมใต้เส้น 0:", list(time_map.keys()), index=1)
-                        min_days = time_map[time_choice]
-                        filtered_df = filtered_df[(filtered_df['RS_Line'] <= 0.0) & (filtered_df['อยู่ใต้เส้น0มาแล้ว(วัน)'] >= min_days)]
-                        show_columns.append('อยู่ใต้เส้น0มาแล้ว(วัน)')
-                        sort_by_col, ascending_sort = 'RS_Line', False
-                    
-                    elif strategy_option == "3 Month High":
-                        filtered_df = filtered_df[filtered_df['Is_3M_High'] == True]
-                        show_columns.append('New_High_3M_มาแล้ว(วัน)')
-                        sort_by_col, ascending_sort = 'New_High_3M_มาแล้ว(วัน)', True
-                    
-                    elif strategy_option == "6 Month High":
-                        filtered_df = filtered_df[filtered_df['Is_6M_High'] == True]
-                        show_columns.append('New_High_6M_มาแล้ว(วัน)')
-                        sort_by_col, ascending_sort = 'New_High_6M_มาแล้ว(วัน)', True
-                    
-                    elif strategy_option == "52 Week High":
-                        filtered_df = filtered_df[filtered_df['Is_52W_High'] == True]
-                        show_columns.append('New_High_52W_มาแล้ว(วัน)')
-                        sort_by_col, ascending_sort = 'New_High_52W_มาแล้ว(วัน)', True
-            
-                    # 5. แสดงผล
-                    results_container = st.empty() 
+                # 3. กำหนดคอลัมน์พื้นฐานและ Sort
+                show_columns = ['Ticker', 'ราคาล่าสุด', 'RSI_14', 'RS_Line', 'PE_Ratio', 'ปันผล_%']
+                sort_by_col = 'Ticker'
+                ascending_sort = True
+        
+                # 4. กรองตามหน้าเทรด (Strategy)
+                if strategy_option == "⭐ RS Line ตัดเส้น 0 ขึ้นมาแล้ว":
+                    filtered_df = filtered_df[filtered_df['Is_RS_Above_0'] == True]
+                    show_columns.append('ตัดเส้น0ขึ้นมาแล้ว(วัน)')
+                    sort_by_col, ascending_sort = 'ตัดเส้น0ขึ้นมาแล้ว(วัน)', True
                 
+                elif strategy_option == "📈 RS Line ทำจุดสูงสุดใหม่ (RS New High)":
+                    filtered_df = filtered_df[filtered_df['RS_Line'] >= filtered_df['RS_Line_50D_Max']]
+                    sort_by_col, ascending_sort = 'RS_Line', False
                 
-                    # กรองคอลัมน์ที่เลือกให้โชว์
-                    valid_cols = [c for c in show_columns if c in filtered_df.columns]
+                elif strategy_option == "🔥 RS Line ใกล้จะตัด 0 (จ่อระเบิด)":
+                    time_map = {"3 เดือน (60 วัน)": 60, "6 เดือน (120 วัน)": 120, "1 ปี (240 วัน)": 240}
+                    time_choice = st.sidebar.selectbox("เลือกระยะเวลาจมใต้เส้น 0:", list(time_map.keys()), index=1)
+                    min_days = time_map[time_choice]
+                    filtered_df = filtered_df[(filtered_df['RS_Line'] <= 0.0) & (filtered_df['อยู่ใต้เส้น0มาแล้ว(วัน)'] >= min_days)]
+                    show_columns.append('อยู่ใต้เส้น0มาแล้ว(วัน)')
+                    sort_by_col, ascending_sort = 'RS_Line', False
+                
+                elif strategy_option == "3 Month High":
+                    filtered_df = filtered_df[filtered_df['Is_3M_High'] == True]
+                    show_columns.append('New_High_3M_มาแล้ว(วัน)')
+                    sort_by_col, ascending_sort = 'New_High_3M_มาแล้ว(วัน)', True
+                
+                elif strategy_option == "6 Month High":
+                    filtered_df = filtered_df[filtered_df['Is_6M_High'] == True]
+                    show_columns.append('New_High_6M_มาแล้ว(วัน)')
+                    sort_by_col, ascending_sort = 'New_High_6M_มาแล้ว(วัน)', True
+                
+                elif strategy_option == "52 Week High":
+                    filtered_df = filtered_df[filtered_df['Is_52W_High'] == True]
+                    show_columns.append('New_High_52W_มาแล้ว(วัน)')
+                    sort_by_col, ascending_sort = 'New_High_52W_มาแล้ว(วัน)', True
+        
+                # 5. แสดงผล
+                results_container = st.empty() 
+            
+            
+                # กรองคอลัมน์ที่เลือกให้โชว์
+                valid_cols = [c for c in show_columns if c in filtered_df.columns]
                 ##########################
             # 4. ส่วนการเลือกหุ้น (เป็นตัวกลางส่งค่าไป Fundamental และ กราฟ)
             
