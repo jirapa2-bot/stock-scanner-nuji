@@ -1240,7 +1240,7 @@ def main():
             
             # แสดงผลตารางหุ้นที่ผ่านการกรอง
             valid_cols = [c for c in show_columns if c in filtered_df.columns]
-            st.dataframe(filtered_df[valid_cols] if valid_cols else filtered_df, use_container_width=True)
+            #st.dataframe(filtered_df[valid_cols] if valid_cols else filtered_df, use_container_width=True)
         else:
             st.warning("⚠️ ไม่มีข้อมูลหุ้นสำหรับแสดงผลตัวกรอง")
         
