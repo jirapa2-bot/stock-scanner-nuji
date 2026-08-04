@@ -1183,7 +1183,7 @@ def main():
                     if col in filtered_df.columns:
                         filtered_df[col] = filtered_df[col].astype(str).str.lower().str.strip() == 'true'
                 
-                # 2. กรองข้อมูลด้วย Slider ที่รับค่าจาก Sidebar อย่างถูกต้อง
+                # 2. กรองข้อมูลด้วย Slider
                 if max_pe < 100:
                     filtered_df = filtered_df[filtered_df['PE_Ratio'] <= max_pe]
                     
@@ -1192,111 +1192,83 @@ def main():
                     
                 filtered_df = filtered_df[(filtered_df['RSI_14'] >= rsi_range[0]) & (filtered_df['RSI_14'] <= rsi_range[1])]
                 
-                # แสดงผลตารางหุ้นที่ผ่านการกรองในแท็บวิเคราะห์กราฟ
-                st.dataframe(filtered_df, use_container_width=True)
-            else:
-                st.warning("⚠️ ไม่มีข้อมูลหุ้นสำหรับแสดงผลตัวกรอง")
-                    
                 # 3. กำหนดคอลัมน์พื้นฐานและ Sort
                 show_columns = ['Ticker', 'ราคาล่าสุด', 'RSI_14', 'RS_Line', 'PE_Ratio', 'ปันผล_%']
-                sort_by_col = 'Ticker'
-                ascending_sort = True
-        
+                
                 # 4. กรองตามหน้าเทรด (Strategy)
                 if strategy_option == "⭐ RS Line ตัดเส้น 0 ขึ้นมาแล้ว":
                     filtered_df = filtered_df[filtered_df['Is_RS_Above_0'] == True]
-                    show_columns.append('ตัดเส้น0ขึ้นมาแล้ว(วัน)')
-                    sort_by_col, ascending_sort = 'ตัดเส้น0ขึ้นมาแล้ว(วัน)', True
-                
+                    if 'ตัดเส้น0ขึ้นมาแล้ว(วัน)' not in show_columns:
+                        show_columns.append('ตัดเส้น0ขึ้นมาแล้ว(วัน)')
                 elif strategy_option == "📈 RS Line ทำจุดสูงสุดใหม่ (RS New High)":
-                    filtered_df = filtered_df[filtered_df['RS_Line'] >= filtered_df['RS_Line_50D_Max']]
-                    sort_by_col, ascending_sort = 'RS_Line', False
-                
+                    if 'RS_Line_50D_Max' in filtered_df.columns:
+                        filtered_df = filtered_df[filtered_df['RS_Line'] >= filtered_df['RS_Line_50D_Max']]
                 elif strategy_option == "🔥 RS Line ใกล้จะตัด 0 (จ่อระเบิด)":
                     time_map = {"3 เดือน (60 วัน)": 60, "6 เดือน (120 วัน)": 120, "1 ปี (240 วัน)": 240}
                     time_choice = st.sidebar.selectbox("เลือกระยะเวลาจมใต้เส้น 0:", list(time_map.keys()), index=1)
                     min_days = time_map[time_choice]
-                    filtered_df = filtered_df[(filtered_df['RS_Line'] <= 0.0) & (filtered_df['อยู่ใต้เส้น0มาแล้ว(วัน)'] >= min_days)]
-                    show_columns.append('อยู่ใต้เส้น0มาแล้ว(วัน)')
-                    sort_by_col, ascending_sort = 'RS_Line', False
-                
+                    if 'อยู่ใต้เส้น0มาแล้ว(วัน)' in filtered_df.columns:
+                        filtered_df = filtered_df[(filtered_df['RS_Line'] <= 0.0) & (filtered_df['อยู่ใต้เส้น0มาแล้ว(วัน)'] >= min_days)]
+                        show_columns.append('อยู่ใต้เส้น0มาแล้ว(วัน)')
                 elif strategy_option == "3 Month High":
                     filtered_df = filtered_df[filtered_df['Is_3M_High'] == True]
                     show_columns.append('New_High_3M_มาแล้ว(วัน)')
-                    sort_by_col, ascending_sort = 'New_High_3M_มาแล้ว(วัน)', True
-                
                 elif strategy_option == "6 Month High":
                     filtered_df = filtered_df[filtered_df['Is_6M_High'] == True]
                     show_columns.append('New_High_6M_มาแล้ว(วัน)')
-                    sort_by_col, ascending_sort = 'New_High_6M_มาแล้ว(วัน)', True
-                
                 elif strategy_option == "52 Week High":
                     filtered_df = filtered_df[filtered_df['Is_52W_High'] == True]
                     show_columns.append('New_High_52W_มาแล้ว(วัน)')
-                    sort_by_col, ascending_sort = 'New_High_52W_มาแล้ว(วัน)', True
-        
-                # 5. แสดงผล
-                results_container = st.empty() 
-            
-            
-                # กรองคอลัมน์ที่เลือกให้โชว์
+                
+                # แสดงผลตารางหุ้นที่ผ่านการกรอง
                 valid_cols = [c for c in show_columns if c in filtered_df.columns]
-                ##########################
-            # 4. ส่วนการเลือกหุ้น (เป็นตัวกลางส่งค่าไป Fundamental และ กราฟ)
+                st.dataframe(filtered_df[valid_cols] if valid_cols else filtered_df, use_container_width=True)
+            else:
+                st.warning("⚠️ ไม่มีข้อมูลหุ้นสำหรับแสดงผลตัวกรอง")
             
+            st.markdown("---")
+            
+            ################################
+            # 4. ส่วนการเลือกหุ้นไปดูรายละเอียดกราฟ
+            ################################
             st.subheader("🔍 1. วิเคราะห์กราฟเทคนิคัลอัจฉริยะ (Multi-Timeframe & RS vs SET Index)")
             
             col_input, col_metrics = st.columns([1, 3])
             
             with col_input:
-                all_tickers = [t.replace('.BK', '') for t in SET100_TICKERS]
+                all_tickers = [t.replace('.BK', '') for t in SET100_TICKERS] if 'SET100_TICKERS' in globals() else ["KBANK", "PTT", "SCB"]
                 
-                # 1. กำหนดค่าเริ่มต้น
                 current_selected = st.session_state.get("selected_ticker", "KBANK")
                 
-                # 2. สร้าง Selectbox
                 ticker_input = st.selectbox(
                     "เลือกหรือพิมพ์ชื่อหุ้นที่ต้องการดูราคากราฟรายละเอียด:", 
                     options=all_tickers, 
                     index=all_tickers.index(current_selected) if current_selected in all_tickers else 0
                 )
                 
-                # 3. จุดสำคัญ: ถ้าค่าที่เลือกใหม่ไม่ตรงกับค่าใน session_state ให้สั่งอัปเดตและ Rerun
                 if ticker_input != current_selected:
                     st.session_state.selected_ticker = ticker_input
-                    st.rerun()  # บังคับให้โปรแกรมเริ่มทำงานใหม่ตั้งแต่บรรทัดบนสุดเพื่อให้กราฟโหลดข้อมูลหุ้นตัวใหม่
+                    st.rerun()
                 
-                ticker = f"{st.session_state.selected_ticker}.BK"
-            
             selected_ticker = st.session_state.selected_ticker 
             ticker = f"{selected_ticker}.BK"
             
-            # ใช้ฟังก์ชัน Cache ดึงข้อมูลแทนการดึงตรงจาก Ticker object
-            info = get_cached_stock_info(ticker) 
-            
-            # ถ้าพี่อ้ำยังต้องใช้ stock_data เพื่อดึงข้อมูลกราฟ หรืออย่างอื่น
-            # ก็ให้ประกาศ stock_data ไว้เหมือนเดิมได้ แต่ไม่ต้องดึง .info แล้วครับ
-            stock_data = yf.Ticker(ticker) 
+            info = get_cached_stock_info(ticker) if 'get_cached_stock_info' in globals() else None
+            stock_data = yf.Ticker(ticker)
                 
-            ##### link web set and trading view ########
-            # สร้างคอลัมน์ 2 ช่อง (ขนาดเท่ากัน)
+            # ปุ่มลิงก์ไป SET และ TradingView
             col1, col2 = st.columns(2)
-            
-            # ปุ่มที่ 1 (ใส่ในคอลัมน์ที่ 1)
             with col1:
                 set_url = f"https://www.set.or.th/th/market/product/stock/quote/{st.session_state.selected_ticker}/company-profile/information"
-                st.link_button(f"🌐 ข้อมูล SET", set_url, use_container_width=True)
-            
-            # ปุ่มที่ 2 (ใส่ในคอลัมน์ที่ 2)
+                st.link_button("🌐 ข้อมูล SET", set_url, use_container_width=True)
             with col2:
                 tv_url = f"https://www.tradingview.com/chart/?symbol=SET%3A{st.session_state.selected_ticker}"
-                st.link_button(f"📈 กราฟ TradingView", tv_url, use_container_width=True)
+                st.link_button("📈 กราฟ TradingView", tv_url, use_container_width=True)
             
-            # 5. Fundamental Dashboard
+            # Fundamental Dashboard
             if info:
                 st.markdown("#### 📊 Fundamental Growth Dashboard (คัดกรองพลังขับเคลื่อนตามสูตร SEPA)")
-            
-                # ดึงงบอย่างปลอดภัย (เนื่องจากหุ้นไทยบางตัวบน Yahoo Finance ข้อมูลบางช่องอาจเป็น None)
+                
                 m_cap = info.get('marketCap', None)
                 rev_growth = info.get('quarterlyRevenueGrowth', info.get('revenueGrowth', None))
                 eps_growth = info.get('quarterlyEarningsGrowth', info.get('earningsGrowth', None))
@@ -1333,52 +1305,41 @@ def main():
                     if pb_ratio is not None:
                         st.write(f"• **ราคาต่อมูลค่าทางบัญชี (P/B Ratio):** {pb_ratio:.2f} เท่า")
                     pe_value = info.get('trailingPE')
-                    
                     if pe_value is not None:
                         st.write(f"• **ราคาต่อกำไรสุทธิ (P/E Ratio ยืนยัน):** {pe_value:.2f} เท่า")
                     else:
                         st.write("• **ราคาต่อกำไรสุทธิ (P/E Ratio ยืนยัน):** ไม่มีข้อมูล")
-                    
-                st.info("💡 **ข้อแนะนำจากระบบ:** หุ้นซุปเปอร์สต็อกตามสไตล์ Mark Minervini มักจะมี EPS Growth ขยายตัวมากกว่า 20%-25% ขึ้นไป ควบคู่กับราคาหุ้นที่ยกฐานยืนเหนือเส้น EMA ขาขึ้น")
                 
-                # 3. แสดงผลตารางและกราฟ
-                # ... (เอาโค้ดส่วนแสดงผล st.dataframe และ st.plotly_chart มาใส่ตรงนี้) ...
-                #####################################
-                with st.expander("⚙️ ตั้งค่าการแสดงผลกราฟ"):
-                    st.markdown("##### ⚙️ ตั้งค่าการแสดงผลกราฟ")
-                    col_tf, col_period = st.columns([1, 1])
-                    
-                    tf_mapping = {
-                        "1 ชม. (1hr)": "1h",
-                        "4 ชม. (4hr)": "4h",
-                        "1 วัน (Day)": "1d",
-                        "1 สัปดาห์ (Week)": "1wk",
-                        "1 เดือน (Month)": "1mo"
-                    }
-                    # เพิ่ม Mapping นี้ไว้ก่อนส่วนที่เรียก stock_data.history
-                    p_map = {
-                        "6 เดือน (6m)": "6mo", 
-                        "1 ปี (1y)": "1y", 
-                        "5 ปี (5y)": "5y", 
-                        "ตั้งแต่เข้าตลาด (All Time)": "max"
-                    }
-                    
-                    
-                    with col_tf:
-                        tf_select = st.pills("เลือกความถี่แท่งเทียน (Timeframe):", options=list(tf_mapping.keys()), default="1 วัน (Day)")
-                        if not tf_select:
-                            tf_select = "1 วัน (Day)"
-                        selected_tf = tf_mapping[tf_select]
-                    
-                    with col_period:
-                        if selected_tf in ["1h", "4h"]:
-                            period_options = ["6 เดือน (6m)", "1 ปี (1y)"]
-                            chart_period = st.pills("เลือกช่วงเวลากราฟ (สั้น/กลาง):", options=period_options, default="6 เดือน (6m)")
-                        else:
-                            period_options = ["6 เดือน (6m)", "1 ปี (1y)", "5 ปี (5y)", "ตั้งแต่เข้าตลาด (All Time)"]
-                            chart_period = st.pills("เลือกช่วงเวลากราฟ (ทั้งหมด):", options=period_options, default="6 เดือน (6m)")
-                        if not chart_period:
-                            chart_period = "6 เดือน (6m)" if selected_tf in ["1h", "4h"] else "1 เดือน (1y)"
+                st.info("💡 **ข้อแนะนำจากระบบ:** หุ้นซุปเปอร์สต็อกตามสไตล์ Mark Minervini มักจะมี EPS Growth ขยายตัวมากกว่า 20%-25% ขึ้นไป ควบคู่กับราคาหุ้นที่ยกฐานยืนเหนือเส้น EMA ขาขึ้น")
+            
+            # ตั้งค่าการแสดงผลกราฟ
+            with st.expander("⚙️ ตั้งค่าการแสดงผลกราฟ"):
+                st.markdown("##### ⚙️ ตั้งค่าการแสดงผลกราฟ")
+                col_tf, col_period = st.columns([1, 1])
+                
+                tf_mapping = {
+                    "1 ชม. (1hr)": "1h",
+                    "4 ชม. (4hr)": "4h",
+                    "1 วัน (Day)": "1d",
+                    "1 สัปดาห์ (Week)": "1wk",
+                    "1 เดือน (Month)": "1mo"
+                }
+                
+                with col_tf:
+                    tf_select = st.pills("เลือกความถี่แท่งเทียน (Timeframe):", options=list(tf_mapping.keys()), default="1 วัน (Day)")
+                    if not tf_select:
+                        tf_select = "1 วัน (Day)"
+                    selected_tf = tf_mapping[tf_select]
+                
+                with col_period:
+                    if selected_tf in ["1h", "4h"]:
+                        period_options = ["6 เดือน (6m)", "1 ปี (1y)"]
+                        chart_period = st.pills("เลือกช่วงเวลากราฟ (สั้น/กลาง):", options=period_options, default="6 เดือน (6m)")
+                    else:
+                        period_options = ["6 เดือน (6m)", "1 ปี (1y)", "5 ปี (5y)", "ตั้งแต่เข้าตลาด (All Time)"]
+                        chart_period = st.pills("เลือกช่วงเวลากราฟ (ทั้งหมด):", options=period_options, default="6 เดือน (6m)")
+                    if not chart_period:
+                        chart_period = "6 เดือน (6m)" if selected_tf in ["1h", "4h"] else "1 ปี (1y)"
                     
                     # =============================================================
                     # 6. กราฟเทคนิคัล
