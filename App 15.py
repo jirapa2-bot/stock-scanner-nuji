@@ -3198,7 +3198,14 @@ def main():
                 # --- ส่วนที่ 5: กราฟแท่งซ้อน %Yield / Cost ต่อปี (มีตัวกรองปีและ All Time แยกอิสระ) ---
                 st.markdown("---")
                 st.markdown("##### 🚀 วิเคราะห์การเติบโต Dividend Yield on Cost รายปี (Stacked Bar Chart)")
+
+                # --- ตัวอย่างการประกาศและโหลดข้อมูล df_div ก่อนนำไปใช้งาน ---
+                if "dividend_data" in st.session_state and st.session_state.dividend_data:
+                    df_div = pd.DataFrame(st.session_state.dividend_data)
+                else:
+                    df_div = pd.DataFrame(columns=['Ticker', 'ยอดรับสุทธิ', 'ต้นทุนหุ้น', 'จำนวนหุ้น'])
                 
+                # จากนั้นค่อยนำไปเช็คเงื่อนไขเดิมของคุณต่อได้อย่างปลอดภัย
                 if 'Ticker' in df_div.columns and 'ยอดรับสุทธิ' in df_div.columns and 'ต้นทุนหุ้น' in df_div.columns and 'จำนวนหุ้น' in df_div.columns:
                     
                     # คัดลอกข้อมูลทั้งหมดของตารางปันผล
