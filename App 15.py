@@ -573,8 +573,12 @@ def get_gsheet_client():
             raw_creds = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
         else:
-            # ดึงข้อมูลจาก st.secrets แบบดึงมาตรงๆ เป็น dict ได้เลยเมื่อเขียนรูปแบบ TOML ถูกต้อง
-            creds_dict = dict(st.secrets["gcp_service_account"])
+            # ดึงค่าที่เป็น JSON string ออกมาแปลงเป็น Dictionary ปกติ
+            raw_secret = st.secrets["gcp_service_account"]
+            if isinstance(raw_secret, str):
+                creds_dict = json.loads(raw_secret)
+            else:
+                creds_dict = dict(raw_secret)
             
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
