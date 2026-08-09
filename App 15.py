@@ -5452,7 +5452,7 @@ def main():
                                     return pd.DataFrame()
                                 time.sleep(1 + i) # รอแป๊บเดียวก่อนลองใหม่
                         return pd.DataFrame()
-            
+                    
                     df_pvd = get_ws_with_retry('Provident_Fund')
                     df_ins = get_ws_with_retry('Insurance')
                     df_coop = get_ws_with_retry('Coop')
@@ -5465,11 +5465,14 @@ def main():
                 # 1. ดึงข้อมูลผ่านระบบ Cache ปลอดภัยหายห่วงเรื่อง API ล่ม
                 df_pvd, df_ins, df_coop, df_bank, df_sso, df_portfolio_hist = fetch_all_wealth_data()
                         
-                # 2. ฟังก์ชันเตรียมข้อมูล
+                # 2. ฟังก์ชันเตรียมข้อมูล (แก้ไขให้ปลอดภัย รองรับกรณีตารางว่าง)
                 def prepare_series(df, date_col, val_col, name):
+                    if df is None or not isinstance(df, pd.DataFrame) or df.empty:
+                        return pd.DataFrame(columns=[name])
+                    
                     df = df.copy()
-                    if df.empty:
-                        return pd.DataFrame(columns=[name], index=pd.to_datetime([]))
+                    if date_col not in df.columns or val_col not in df.columns:
+                        return pd.DataFrame(columns=[name])
                     
                     if date_col == 'Month':
                         thai_months = {
@@ -5477,13 +5480,20 @@ def main():
                             'พฤษภาคม': '05', 'มิถุนายน': '06', 'กรกฎาคม': '07', 'สิงหาคม': '08',
                             'กันยายน': '09', 'ตุลาคม': '10', 'พฤศจิกายน': '11', 'ธันวาคม': '12'
                         }
-                        df['Month_Num'] = df[date_col].map(thai_months).fillna('12')
-                        df['Date'] = pd.to_datetime(df['Year_CE'].astype(str) + '-' + df['Month_Num'] + '-01', errors='coerce')
+                        if 'Year_CE' in df.columns:
+                            df['Month_Num'] = df[date_col].map(thai_months).fillna('12')
+                            df['Date'] = pd.to_datetime(df['Year_CE'].astype(str) + '-' + df['Month_Num'] + '-01', errors='coerce')
+                        else:
+                            return pd.DataFrame(columns=[name])
                     else:
                         df['Date'] = pd.to_datetime(df[date_col], errors='coerce')
                     
-                    df[name] = df[val_col].astype(str).str.replace(',', '').astype(float)
-                    return df.dropna(subset=['Date']).set_index('Date')[[name]]
+                    df[name] = pd.to_numeric(df[val_col].astype(str).str.replace(',', ''), errors='coerce').fillna(0)
+                    df = df.dropna(subset=['Date'])
+                    if df.empty:
+                        return pd.DataFrame(columns=[name])
+                        
+                    return df.set_index('Date')[[name]]
             
                 # 3. เตรียม Series ทั้งหมด
                 s_pvd = prepare_series(df_pvd, 'Month', 'Grand_Total', 'PVD')
@@ -5502,7 +5512,7 @@ def main():
                     s_ins = s_sso.rename(columns={'SSO': 'Insurance'})
             
                 # 4. รวมข้อมูลโดยใช้ Outer Join และ ffill
-                series_list = [s for s in [s_pvd, s_ins, s_coop, s_bank, s_port] if not s.empty]
+                series_list = [s for s in [s_pvd, s_ins, s_coop, s_bank, s_port] if not s.empty and not s.columns.empty]
                 
                 if series_list:
                     df_merged = series_list[0]
