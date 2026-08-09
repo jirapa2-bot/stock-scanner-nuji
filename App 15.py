@@ -314,7 +314,9 @@ def load_total_cash_balance():
         client = get_gsheet_client()
         sheet = client.open('MyStockData').worksheet('CashFlow')
         
-        # 1. ดึงประวัติกระแสเงินสดทั้งหมดมาคำนวณ
+        # ปริ้นท์เช็กชื่อ Service Account หรืออีเมลที่กำลังเชื่อมต่ออยู่
+        print(f"DEBUG: Connected as -> {client.auth.service_account_email}")
+        
         records = sheet.get_all_records()
         df = pd.DataFrame(records)
         
@@ -322,34 +324,30 @@ def load_total_cash_balance():
         if 'Amount' in df.columns and 'Type' in df.columns:
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
             
-            # วนลูปบวก/ลบตามประเภทรายการ (ปรับแก้ชื่อ Type ให้ตรงกับในชีทของคุณ)
             for _, row in df.iterrows():
                 t_type = str(row['Type']).strip()
                 amt = float(row['Amount'])
                 
-                # ถ้ายอดเป็นบวก เช่น เติมเงินสด, เงินปันผล, เงินรายได้อื่นๆ, ขายหุ้น
                 if t_type in ['เติมเงินสด', 'เงินปันผล', 'เงินรายได้อื่นๆ', 'เงินคงเหลือเริ่มต้น'] or amt > 0:
                     total_cash_flow += amt
-                # ถ้ายอดเป็นลบ เช่น ถอนเงินสด
                 elif t_type in ['ถอนเงินสด'] or amt < 0:
-                    total_cash_flow += amt # amt ติดลบอยู่แล้ว เอามาบวกได้เลย
+                    total_cash_flow += amt
         
-        # 2. หักลบด้วยเงินสดที่ถูกนำไปซื้อหุ้นทั้งหมดในพอร์ตปัจจุบัน
         total_stock_cost = 0
         if "my_portfolio" in st.session_state and st.session_state.my_portfolio:
             for row in st.session_state.my_portfolio:
-                shares = float(row.get('shares', 0))
-                avg_price = float(row.get('avg_price', 0.0))
+                shares = float(str(row.get('shares', row.get('จำนวน', 0))).replace(',', ''))
+                avg_price = float(str(row.get('avg_price', row.get('ต้นทุนเฉลี่ย', 0))).replace(',', ''))
                 total_stock_cost += (shares * avg_price)
                 
-        # เงินสดคงเหลือ = เงินสดทั้งหมดในระบบ - ต้นทุนหุ้นที่ถืออยู่
         calculated_balance = total_cash_flow - total_stock_cost
         
+        print(f"DEBUG: Cash Flow Total = {total_cash_flow}, Stock Cost = {total_stock_cost}, Balance = {calculated_balance}")
         return float(calculated_balance)
         
     except Exception as e:
-        print(f"DEBUG: Error ในการคำนวณเงินสด Auto: {e}")
-        return 2922.34  # ค่าสำรองเผื่อเกิดข้อผิดพลาด
+        print(f"DEBUG: Error: {e}")
+        return 0.0
         
 # --- กำหนดค่าเริ่มต้น Cash Balance จาก Google Sheets โดยตรง ---
 if "cash_balance" not in st.session_state:
@@ -2130,7 +2128,7 @@ def main():
                     
                     st.markdown("##### 💰 สรุปสถานะพอร์ตปัจจุบัน")
                     col_a, col_b, col_c = st.columns(3)
-                    col_a.metric("เงินสดคงเหลือ", f"{cash_balance:,.0f} ฿")
+                    col_a.metric("", f"{cash_balance:,.0f} ฿")
                     col_b.metric("มูลค่าหุ้นที่ถือ", f"{market_value:,.0f} ฿")
                     col_c.metric("มูลค่าพอร์ตสุทธิ", f"{total_equity:,.0f} ฿")
                     
@@ -3525,12 +3523,12 @@ def main():
                                 total_value += market_value
                         
                         if portfolio_list:
-                            # ดึงยอดเงินสดคงเหลือจาก session_state (ถ้ามี ถ้าไม่มีให้เป็น 0)
+                            # ดึงยอดจาก session_state (ถ้ามี ถ้าไม่มีให้เป็น 0)
                             cash_bal = st.session_state.get('cash_balance', 0.0)
                             
                             # สรุปยอดรวม Metrics ด้านบน
                             col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-                            col_s1.metric("เงินสดคงเหลือ", f"{cash_bal:,.0f} ฿")
+                            col_s1.metric("", f"{cash_bal:,.0f} ฿")
                             col_s2.metric("เงินลงทุนรวม", f"{total_invest:,.0f} ฿")
                             col_s3.metric("มูลค่าปัจจุบัน", f"{total_value:,.0f} ฿")
                             diff = total_value - total_invest
