@@ -339,7 +339,7 @@ def load_total_cash_balance():
     spreadsheet_name = "MyStockData"
 
     # 1. ดึงยอดรวมจากชีต cashflow ทั้งหมด
-    sheet_cash = client.open(spreadsheet_name).worksheet("cashflow")
+    sheet_cash = client.open(spreadsheet_name).worksheet("CashFlow")
     records_cash = sheet_cash.get_all_records()
 
     total_cash_flow = 0.0
