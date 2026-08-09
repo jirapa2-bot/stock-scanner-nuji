@@ -2156,10 +2156,13 @@ def main():
                     r_col1, r_col2 = st.columns([1, 1])
     
                     with r_col1:
+                        # คำนวณค่าเริ่มต้นให้ปลอดภัย ไม่ให้ต่ำกว่า min_value (1000) เด็ดขาด
+                        safe_default_value = max(1000, int(total_equity)) if 'total_equity' in locals() else 1000
+                        
                         total_cap = st.number_input(
                             "👉 ระบุจำนวนเงินทุนที่ต้องการใช้คำนวณไม้ซื้อนี้ (บาท):", 
                             min_value=1000, 
-                            value=int(total_equity), # นี่คือค่าเริ่มต้นที่ดึงมาจากพอร์ตจริง
+                            value=safe_default_value, 
                             step=1000,
                             help="สามารถลบตัวเลขนี้แล้วพิมพ์จำนวนเงินที่ต้องการใช้ซื้อจริงได้เลยครับ"
                         )
