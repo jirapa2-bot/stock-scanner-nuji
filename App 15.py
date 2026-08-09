@@ -35,16 +35,17 @@ from google.oauth2.service_account import Credentials
 
 # 1. ประกาศฟังก์ชันเชื่อมต่อ Google Sheets (ใช้ Streamlit Secrets ตามที่แนะนำไปก่อนหน้านี้)
 def get_gsheet_client():
-  scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+  # นำ scopes ทั้งสองตัวนี้มาใส่ไว้ที่นี่ครับ
+  scopes = [
+      "https://www.googleapis.com/auth/spreadsheets",
+      "https://www.googleapis.com/auth/drive",
+  ]
 
-  # ตรวจสอบรูปแบบของ secrets ว่าเก็บมาเป็นแบบข้อความ (JSON string) หรือแบบตาราง
   secret_val = st.secrets["gcp_service_account"]
 
   if isinstance(secret_val, str):
-    # ถ้าเป็นข้อความ string ให้แปลงเป็น dictionary ด้วย json.loads
     creds_dict = json.loads(secret_val)
   else:
-    # ถ้าเป็นตารางแยกคีย์อยู่แล้ว ให้ดึงแปลงเป็น dict ปกติ
     creds_dict = dict(secret_val)
 
   creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
