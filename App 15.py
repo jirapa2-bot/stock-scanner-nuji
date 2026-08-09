@@ -36,11 +36,28 @@ from google.oauth2.service_account import Credentials
 # 1. ประกาศฟังก์ชันเชื่อมต่อ Google Sheets (ใช้ Streamlit Secrets ตามที่แนะนำไปก่อนหน้านี้)
 def get_gsheet_client():
   scopes = ["https://www.googleapis.com/auth/spreadsheets"]
-  # ดึงค่า credentials จาก Streamlit Secrets
-  creds_dict = dict(st.secrets["gcp_service_account"])
+
+  # แก้ไขวิธีการดึง secrets ให้ถูกต้องตามโครงสร้างของ Streamlit
+  creds_dict = {
+      "type": st.secrets["gcp_service_account"]["type"],
+      "project_id": st.secrets["gcp_service_account"]["project_id"],
+      "private_key_id": st.secrets["gcp_service_account"]["private_key_id"],
+      "private_key": st.secrets["gcp_service_account"]["private_key"],
+      "client_email": st.secrets["gcp_service_account"]["client_email"],
+      "client_id": st.secrets["gcp_service_account"]["client_id"],
+      "auth_uri": st.secrets["gcp_service_account"]["auth_uri"],
+      "token_uri": st.secrets["gcp_service_account"]["token_uri"],
+      "auth_provider_x509_cert_url": st.secrets["gcp_service_account"][
+          "auth_provider_x509_cert_url"
+      ],
+      "client_x509_cert_url": st.secrets["gcp_service_account"][
+          "client_x509_cert_url"
+      ],
+  }
+
   creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
   client = gspread.authorize(creds)
-  return client
+  return clientt
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
