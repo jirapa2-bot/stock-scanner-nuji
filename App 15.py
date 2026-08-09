@@ -360,6 +360,7 @@ def load_total_cash_balance():
     except Exception as e:
         st.error(f"❌ เกิดข้อผิดพลาดในการคำนวณเงินสด: {e}")
         return 0.0
+        
 # --- กำหนดค่าเริ่มต้น Cash Balance จาก Google Sheets โดยตรง ---
 if "cash_balance" not in st.session_state:
     st.session_state.cash_balance = load_total_cash_balance()
