@@ -1031,17 +1031,13 @@ def check_alerts(row):
 @st.cache_data(ttl=3600)
 def load_from_gsheet():
     try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('StockData')
-        data = sheet.get_all_records()
+        # เปลี่ยนมาเรียกใช้ load_data_safe เพื่อจัดการโครงสร้างข้อมูลและป้องกัน Error นี้โดยเฉพาะ
+        df = load_data_safe('StockData')
         
-        if not data:
+        if df.empty:
             st.warning("ไม่มีข้อมูลใน Google Sheet ครับ")
             return None
             
-        # ดึงข้อมูลออกมาเป็น DataFrame
-        df = pd.DataFrame(data)
-        
         # ล้างชื่อคอลัมน์ (เผื่อมีช่องว่างติดมา)
         df.columns = df.columns.str.strip()
         
