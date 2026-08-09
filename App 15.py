@@ -3560,16 +3560,28 @@ def main():
                     # 2. Pie Chart: มูลค่าต้นทุน (25%)
                     with col_p2:
                         st.subheader("🥧 มูลค่าต้นทุน")
-                        fig_pie2 = px.pie(df_p, values='มูลค่าต้นทุน', names='หุ้น', hole=0.4)
-                        fig_pie2.update_traces(
-                            textposition='outside', 
-                            textinfo='label+percent',
-                            textfont=dict(size=9),
-                            automargin=True
-                        )
-                        fig_pie2.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=20), showlegend=False)
-                        st.plotly_chart(fig_pie2, use_container_width=True)
-                        st.markdown("<p style='text-align: center; font-size: 13px;'>สัดส่วนเงินลงทุนต้นทุน</p>", unsafe_allow_html=True)
+                        
+                        # 🛡️ ตรวจสอบและแปลง df_p ให้ปลอดภัยป้องกัน Error กรณีไม่มีข้อมูล
+                        if 'df_p' not in locals() and 'df_p' not in globals():
+                            df_p = pd.DataFrame()
+                        elif not isinstance(df_p, pd.DataFrame):
+                            df_p = pd.DataFrame(df_p if df_p is not None else [])
+                            
+                        # เช็คว่ามี DataFrame และมีคอลัมน์ที่ต้องใช้งานครบถ้วนไหม
+                        if not df_p.empty and 'มูลค่าต้นทุน' in df_p.columns and 'หุ้น' in df_p.columns:
+                            fig_pie2 = px.pie(df_p, values='มูลค่าต้นทุน', names='หุ้น', hole=0.4)
+                            fig_pie2.update_traces(
+                                textposition='outside', 
+                                textinfo='label+percent',
+                                textfont=dict(size=9),
+                                automargin=True
+                            )
+                            fig_pie2.update_layout(height=300, margin=dict(l=0, r=0, t=20, b=20), showlegend=False)
+                            st.plotly_chart(fig_pie2, use_container_width=True)
+                            st.markdown("<p style='text-align: center; font-size: 13px;'>สัดส่วนเงินลงทุนต้นทุน</p>", unsafe_allow_html=True)
+                        else:
+                            # กรณีไม่มีข้อมูล ให้แสดงกล่องข้อความแทนการพ่น Error หน้าแดง
+                            st.info("📊 ยังไม่มีข้อมูลต้นทุนในพอร์ตหุ้นสำหรับแสดงกราฟสัดส่วน")
                     
                     # 3. Bar Chart: กำไร/ขาดทุน (50%)
                     with col_p3:
