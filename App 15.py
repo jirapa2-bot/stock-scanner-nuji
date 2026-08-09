@@ -1,4 +1,32 @@
 # =============================================================
+# # Import และ Setup
+# =============================================================
+import streamlit as st
+import pandas as pd
+import yfinance as yf
+import altair as alt
+import numpy as np
+import plotly.graph_objects as go
+import os
+import google.generativeai as genai
+import io
+import json
+import requests
+import gspread
+import seaborn as sns
+import matplotlib.pyplot as plt
+import plotly.express as px
+import datetime
+import plotly
+from datetime import date, datetime, timedelta
+from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
+from plotly.subplots import make_subplots
+from PIL import Image
+import time
+from gspread.exceptions import APIError
+
+# =============================================================
 # 1. ฟังก์ชันเชื่อมต่อ Google Sheets (Utility พื้นฐานที่ต้องใช้อันแรก)
 # =============================================================
 def get_gsheet_client():
