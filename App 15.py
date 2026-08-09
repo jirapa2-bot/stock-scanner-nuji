@@ -24,6 +24,9 @@ from google.oauth2.service_account import Credentials
 from plotly.subplots import make_subplots
 from PIL import Image
 from datetime import datetime, timedelta
+from your_module import get_gsheet_client
+import time
+from gspread.exceptions import APIError
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
@@ -31,9 +34,14 @@ from datetime import datetime, timedelta
 # Def wealth #
 # 1. ฟังก์ชันเรียก Gemini AI มาแปลงรูปภาพเป็นข้อมูลโครงสร้าง
 
-import time
-from gspread.exceptions import APIError
 
+
+def get_gsheet_client():
+    scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+    creds = Credentials.from_service_account_file("path_to_your_credentials.json", scopes=scopes)
+    client = gspread.authorize(creds)
+    return client
+    
 def get_worksheet_safely(client, spreadsheet_name, worksheet_name, retries=3, delay=2):
     """ฟังก์ชันเปิด Google Sheet พร้อมระบบป้องกันและลองใหม่เมื่อติดปัญหา Quota Exceeded (429)"""
     for attempt in range(retries):
