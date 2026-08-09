@@ -3501,7 +3501,7 @@ def main():
                             col_s3.metric("มูลค่าปัจจุบัน", f"{total_value:,.0f} ฿")
                             diff = total_value - total_invest
                             col_s4.metric("กำไร/ขาดทุนรวม", f"{diff:,.0f} ฿", delta=f"{((diff)/total_invest)*100:.2f}%" if total_invest > 0 else "0%")
-                    
+                        
                             # แสดงตารางพอร์ตหลัก
                             df_p = pd.DataFrame(portfolio_list)
                             df_display_p = df_p.drop(columns=['Sector']) if 'Sector' in df_p.columns else df_p
@@ -3514,7 +3514,10 @@ def main():
                                 })
                                 .map(color_portfolio, subset=["กำไร/ขาดทุน", "% กำไร/ขาดทุน"])
                                 .set_properties(**{'text-align': 'right'})
-                                .set_table_styles([{'selector': 'th', 'props': [('text-align', 'right')]}])
+                                .set_table_styles([
+                                    {'selector': 'th.col_heading', 'props': [('text-align', 'right')]},
+                                    {'selector': 'th', 'props': [('text-align', 'right')]}
+                                ])
                                 , use_container_width=True
                             )
                             
