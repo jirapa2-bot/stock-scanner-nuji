@@ -905,7 +905,6 @@ def update_stock_data(df):
     print("DEBUG: อัปเดตข้อมูลหุ้นเรียบร้อย!")
     
 # 2. ฟังก์ชันอเนกประสงค์ (เอามาแทรกตรงนี้)
-@st.cache_data(ttl=600)          
 def log_cash_transaction(date, trans_type, amount, note):
     try:
         client = get_gsheet_client()
@@ -916,9 +915,10 @@ def log_cash_transaction(date, trans_type, amount, note):
         
         # เพิ่มแถวใหม่ต่อท้ายข้อมูลเดิม
         sheet.append_row(row_data)
-        st.toast("บันทึกรายการเงินสดเรียบร้อย!", icon="💰")
+        return True
     except Exception as e:
-        st.error(f"บันทึกรายการเงินสดไม่สำเร็จ: {e}")
+        print(f"DEBUG: บันทึกรายการเงินสดไม่สำเร็จ: {e}")
+        return False
         
 # ฟังก์ชัน Load ไฟล์ CSV/Excel (ยังคงใช้ได้เหมือนเดิม)
 def load_data_from_file(uploaded_file):
