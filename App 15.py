@@ -3447,21 +3447,44 @@ def main():
                                 color = '#26A69A' if val > 0 else '#EF5350' if val < 0 else 'black'
                                 return f'color: {color}'
                             return None
-                    
+                        
                         for row in st.session_state["my_portfolio"]:
-                            # รองรับชื่อคอลัมน์ได้ทั้งภาษาไทยและอังกฤษ (กันเหนียว)
-                            ticker = str(row.get('หุ้น', row.get('Ticker', ''))).strip()
+                            # 1. ดึงชื่อหุ้น (รองรับทั้งชื่อตรง คีย์ภาษาอังกฤษ และกรณีคอลัมน์ติดกันเป็นก้อน)
+                            ticker = str(
+                                row.get('หุ้น', 
+                                row.get('Ticker', 
+                                row.get('stock', '')))
+                            ).strip()
                             
-                            try:
-                                shares = float(str(row.get('จำนวน', row.get('shares', 0))).replace(',', ''))
-                            except:
-                                shares = 0.0
+                            # ถ้ารูปแบบคอลัมน์ดันติดกันเป็นก้อนยาว ให้ดึงค่าจากช่องแรกสุดของแถวแทน
+                            if not ticker:
+                                values_list = list(row.values())
+                                ticker = str(values_list[0]).strip() if len(values_list) > 0 else ''
                                 
+                            # 2. ดึงจำนวนหุ้น (รองรับคีย์หลากหลายรูปแบบ และการติดกัน)
                             try:
-                                avg_price = float(str(row.get('ต้นทุนเฉลี่ย', row.get('avg_price', 0.0))).replace(',', ''))
+                                raw_shares = row.get('จำนวน', row.get('shares', row.get('sharesavg_price', 0)))
+                                shares = float(str(raw_shares).replace(',', ''))
                             except:
-                                avg_price = 0.0
-                                
+                                # กรณีหาไม่เจอ ให้ดึงค่าจากตำแหน่งคอลัมน์ที่ 1 (ช่องถัดจากชื่อหุ้น) แทน
+                                try:
+                                    values_list = list(row.values())
+                                    shares = float(str(values_list[1]).replace(',', '')) if len(values_list) > 1 else 0.0
+                                except:
+                                    shares = 0.0
+                                    
+                            # 3. ดึงต้นทุนเฉลี่ย
+                            try:
+                                raw_avg = row.get('ต้นทุนเฉลี่ย', row.get('avg_price', row.get('cost_value', 0.0)))
+                                avg_price = float(str(raw_avg).replace(',', ''))
+                            except:
+                                # กรณีหาไม่เจอ ให้ดึงจากตำแหน่งคอลัมน์ถัดไป
+                                try:
+                                    values_list = list(row.values())
+                                    avg_price = float(str(values_list[2]).replace(',', '')) if len(values_list) > 2 else 0.0
+                                except:
+                                    avg_price = 0.0
+                                    
                             sector_val = row.get('Sector', 'General / Unspecified')
                             
                             if ticker:
