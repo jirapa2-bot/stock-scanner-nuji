@@ -4668,9 +4668,16 @@ def main():
             "➕ บันทึกเติม/ถอนเงิน", 
             "📜 ประวัติและ Portfolio"
             ])
+            
             with sub_tfex_input:
                 st.subheader("🛡 คำนวณขนาดสัญญา (Position Size)")
                 
+                # 🛡️ ป้องกันกรณี net_worth ไม่มีอยู่ หรือเป็นค่าว่าง
+                if 'net_worth' not in locals() and 'net_worth' not in globals():
+                    net_worth = 0.0
+                elif net_worth is None:
+                    net_worth = 0.0
+            
                 # ดึงค่า ATR และ Multiplier ที่ใช้งานล่าสุดจาก session_state มาเป็นค่าตั้งต้น
                 current_atr = st.session_state.get('active_atr', 6.5)
                 
@@ -4691,12 +4698,12 @@ def main():
                 # คำนวณเงินที่ยอมขาดทุนได้จริงจากเปอร์เซ็นต์พอร์ต (Net Worth)
                 risk_amount = net_worth * (risk_pct / 100.0)
                 
-                # ใช้ตัวแปร Global ที่เราตั้งค่าไว้
-                im_per_contract = IM_PER_CONTRACT 
+                # ใช้ตัวแปร Global ที่เราตั้งค่าไว้ (ป้องกันกรณีไม่มีตัวแปร IM_PER_CONTRACT)
+                im_per_contract = globals().get('IM_PER_CONTRACT', 100000) 
                 
                 # คำนวณสัญญา (สมมติ 1 จุด TFEX = 200 บาท)
                 contract_by_risk = risk_amount / (stop_loss_points * 200) if (stop_loss_points * 200) > 0 else 0
-                contract_by_margin = net_worth / im_per_contract if im_per_contract > 0 else 0 # net_worth ดึงมาจาก Dashboard
+                contract_by_margin = net_worth / im_per_contract if im_per_contract > 0 else 0
                 
                 max_contracts = min(int(contract_by_risk), int(contract_by_margin))
                 
@@ -4709,17 +4716,25 @@ def main():
                 if max_contracts <= 0:
                     st.error("⚠️ เงินในพอร์ตไม่เพียงพอที่จะเปิดสัญญาภายใต้เงื่อนไขความเสี่ยงนี้")
                 else:
-                    st.success(f"✅ **สรุป: คุณควรเปิดสถานะไม่เกิน {max_contracts} สัญญา**")
-                            
-                # 1. แสดงรายการที่ถืออยู่ (Open Positions)
+                    st.success(f"✅ **สรุป: ควรเปิดสถานะไม่เกิน {max_contracts} สัญญา**")
+                        
                 # 1. แสดงรายการที่ถืออยู่ (Open Positions)
                 st.subheader("📊 สถานะที่ถืออยู่ (Open Positions)")
                 
-                tfex_df['Close_Price_Cleaned'] = pd.to_numeric(tfex_df['Close_Price'], errors='coerce').fillna(0)
-                open_positions = tfex_df[tfex_df['Close_Price_Cleaned'] == 0].copy()
-                
-                if not open_positions.empty:
-                    # ⭐️ เชื่อมโยงค่า ATR และ Multiplier ที่ผู้ใช้ใช้งานล่าสุด (จากฟอร์มด้านบน) มาแสดงและคำนวณในตาราง
+                # 🛡️ ตรวจสอบและแปลง tfex_df ให้ปลอดภัย ป้องกัน KeyError
+                if 'tfex_df' not in locals() and 'tfex_df' not in globals():
+                    tfex_df = pd.DataFrame()
+                elif not isinstance(tfex_df, pd.DataFrame):
+                    tfex_df = pd.DataFrame(tfex_df if tfex_df is not None else [])
+            
+                if not tfex_df.empty and 'Close_Price' in tfex_df.columns:
+                    tfex_df['Close_Price_Cleaned'] = pd.to_numeric(tfex_df['Close_Price'], errors='coerce').fillna(0)
+                    open_positions = tfex_df[tfex_df['Close_Price_Cleaned'] == 0].copy()
+                else:
+                    open_positions = pd.DataFrame()
+            
+                if not open_positions.empty and all(col in open_positions.columns for col in ['Open_Price', 'Status']):
+                    # ⭐️ เชื่อมโยงค่า ATR และ Multiplier ที่ผู้ใช้ใช้งานล่าสุดมาแสดงและคำนวณในตาราง
                     open_positions['ATR'] = user_atr 
                     
                     # แปลงข้อมูลราคาเปิดและ ATR ให้เป็นตัวเลขเพื่อความปลอดภัย
@@ -4727,21 +4742,21 @@ def main():
                     open_positions['ATR'] = pd.to_numeric(open_positions['ATR'], errors='coerce')
                     
                     # คำนวณจุด Stop Loss จาก ATR แยกตามสถานะ Long / Short ของแต่ละไม้
-                    # Long: ราคาเปิด - (ATR * Multiplier)
-                    # Short: ราคาเปิด + (ATR * Multiplier)
                     open_positions['ATR_Stop_Loss'] = open_positions.apply(
-                        lambda row: (row['Open_Price'] - (row['ATR'] * atr_multiplier)) if row['Status'] == 'Long' 
+                        lambda row: (row['Open_Price'] - (row['ATR'] * atr_multiplier)) if row.get('Status') == 'Long' 
                         else (row['Open_Price'] + (row['ATR'] * atr_multiplier)), 
                         axis=1
                     )
                     
-                    # แสดงผลตารางพร้อมคอลัมน์ ATR และ Stop Loss ที่คำนวณสดๆ ตรงกัน
+                    # เลือกคอลัมน์ที่จะแสดงผลเฉพาะที่มีอยู่จริงในตาราง
+                    show_cols = [col for col in ['Trade_ID', 'Date_Open', 'Series', 'Status', 'Size', 'Open_Price', 'ATR', 'ATR_Stop_Loss'] if col in open_positions.columns]
+                    
                     st.dataframe(
-                        open_positions[['Trade_ID', 'Date_Open', 'Series', 'Status', 'Size', 'Open_Price', 'ATR', 'ATR_Stop_Loss']], 
+                        open_positions[show_cols], 
                         use_container_width=True
                     )
                 else:
-                    st.info("ไม่มีรายการที่ถืออยู่ในปัจจุบัน")
+                    st.info("ไม่มีรายการที่ถืออยู่ในปัจจุบัน หรือยังไม่มีข้อมูลตาราง TFEX")
                 
                 # คำนวณ Margin Utilization
                 total_margin_used = open_positions['Size'].sum() * IM_PER_CONTRACT 
