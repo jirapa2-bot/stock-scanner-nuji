@@ -214,7 +214,7 @@ def update_trade_close(spreadsheet_id, trade_id, close_price, date_close):
     st.rerun()              
     
     return True
-
+    
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_auto_atr_cached(symbol="^SET50"):
     """ดึงข้อมูลราคาและคำนวณ ATR ย้อนหลัง 14 วัน"""
