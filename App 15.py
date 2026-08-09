@@ -569,17 +569,17 @@ def get_gsheet_client():
     ]
     
     try:
-        # 1. เช็คจาก GitHub Actions (Environment Variable)
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             creds_dict = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
-        # 2. เช็คจาก Streamlit Cloud (Secrets)
         else:
-            # ใช้ dict() เพื่อแปลง st.secrets เป็น dictionary ธรรมดา
             creds_dict = dict(st.secrets["gcp_service_account"])
             
-        # สร้าง Credentials ด้วยวิธีมาตรฐานที่รองรับทั้งคู่
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
+    except Exception as e:
+        # บรรทัดนี้จะบอกเลยว่าพังเพราะอะไร (เช่น หาไฟล์ไม่ได้รับสิทธิ์ หรือกุญแจผิด)
+        st.error(f"⚠️ Google Sheets Connection Error: {e}")
+        raise e
         
     except Exception as e:
         # ถ้าพัง ให้ print ออกมาดูใน Log ของ GitHub
