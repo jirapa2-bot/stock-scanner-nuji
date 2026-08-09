@@ -310,45 +310,57 @@ def log_to_sheet(sheet_name, row_data):
         return False
 
 def load_total_cash_balance():
+    """คำนวณเงินสดคงเหลือที่แท้จริง: (ยอดรวม Cash Flow ทั้งหมด) - (ผลรวม shares * avg_price ของทุกหุ้นในพอร์ต)"""
     try:
         client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
+        spreadsheet_name = 'MyStockData'
         
-        # ปริ้นท์เช็กชื่อ Service Account หรืออีเมลที่กำลังเชื่อมต่ออยู่
-        print(f"DEBUG: Connected as -> {client.auth.service_account_email}")
+        # 1. ดึงยอดรวมจากชีต Cash_Flow ทั้งหมด
+        sheet_cash = client.open(spreadsheet_name).worksheet('CashFlow')
+        records_cash = sheet_cash.get_all_records()
         
-        records = sheet.get_all_records()
-        df = pd.DataFrame(records)
-        
-        total_cash_flow = 0
-        if 'Amount' in df.columns and 'Type' in df.columns:
-            df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce').fillna(0)
-            
-            for _, row in df.iterrows():
-                t_type = str(row['Type']).strip()
-                amt = float(row['Amount'])
+        total_cash_flow = 0.0
+        if records_cash:
+            df_cash = pd.DataFrame(records_cash)
+            if 'Amount' in df_cash.columns:
+                df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
+                total_cash_flow = float(df_cash['Amount'].sum())
                 
-                if t_type in ['เติมเงินสด', 'เงินปันผล', 'เงินรายได้อื่นๆ', 'เงินคงเหลือเริ่มต้น'] or amt > 0:
-                    total_cash_flow += amt
-                elif t_type in ['ถอนเงินสด'] or amt < 0:
-                    total_cash_flow += amt
+        # 2. บังคับคำนวณต้นทุนหุ้นทั้งหมดจาก shares * avg_price โดยตรง
+        sheet_portfolio = client.open(spreadsheet_name).worksheet('PortfolioData')
+        records_portfolio = sheet_portfolio.get_all_records()
         
-        total_stock_cost = 0
-        if "my_portfolio" in st.session_state and st.session_state.my_portfolio:
-            for row in st.session_state.my_portfolio:
-                shares = float(str(row.get('shares', row.get('จำนวน', 0))).replace(',', ''))
-                avg_price = float(str(row.get('avg_price', row.get('ต้นทุนเฉลี่ย', 0))).replace(',', ''))
+        total_stock_cost = 0.0
+        if records_portfolio:
+            for row in records_portfolio:
+                # จัดการ key ให้สะอาด ป้องกันปัญหาเรื่องเว้นวรรค
+                cleaned_row = {str(k).strip(): v for k, v in row.items()}
+                
+                try:
+                    # ดึงค่าหุ้น (รองรับทั้งชื่อภาษาอังกฤษและไทย)
+                    shares_val = cleaned_row.get('shares', cleaned_row.get('จำนวน', 0))
+                    shares = float(str(shares_val).replace(',', '')) if shares_val not in [None, ''] else 0.0
+                except (ValueError, TypeError):
+                    shares = 0.0
+                    
+                try:
+                    # ดึงค่าต้นทุนเฉลี่ย (รองรับทั้งชื่อภาษาอังกฤษและไทย)
+                    avg_val = cleaned_row.get('avg_price', cleaned_row.get('ต้นทุนเฉลี่ย', 0.0))
+                    avg_price = float(str(avg_val).replace(',', '')) if avg_val not in [None, ''] else 0.0
+                except (ValueError, TypeError):
+                    avg_price = 0.0
+                    
+                # นำจำนวนหุ้นคูณต้นทุนเฉลี่ย แล้วบวกสะสมเข้าไป
                 total_stock_cost += (shares * avg_price)
-                
-        calculated_balance = total_cash_flow - total_stock_cost
+                    
+        # 3. เงินสดคงเหลือที่แท้จริง = ยอดรวม Cash Flow - ต้นทุนหุ้นในพอร์ต
+        actual_cash_balance = total_cash_flow - total_stock_cost
         
-        print(f"DEBUG: Cash Flow Total = {total_cash_flow}, Stock Cost = {total_stock_cost}, Balance = {calculated_balance}")
-        return float(calculated_balance)
+        return float(actual_cash_balance)
         
     except Exception as e:
-        print(f"DEBUG: Error: {e}")
+        st.error(f"❌ เกิดข้อผิดพลาดในการคำนวณเงินสด: {e}")
         return 0.0
-        
 # --- กำหนดค่าเริ่มต้น Cash Balance จาก Google Sheets โดยตรง ---
 if "cash_balance" not in st.session_state:
     st.session_state.cash_balance = load_total_cash_balance()
