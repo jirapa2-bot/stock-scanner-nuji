@@ -4591,42 +4591,57 @@ def main():
                 elif 'Date' in perf_df.columns:
                     perf_df = perf_df[perf_df['Date'] >= cutoff_date]
         
-            # 3. คำนวณ Metrics ทั้งหมดจาก perf_df ที่กรองแล้ว
-            total_trades = len(perf_df)
-            # ป้องกัน KeyError กรณีไม่มีคอลัมน์ Net_Profit
-            if 'Net_Profit' in perf_df.columns:
-                win_trades = len(perf_df[perf_df['Net_Profit'] > 0])
-            elif 'กำไรสุทธิ' in perf_df.columns:
-                win_trades = len(perf_df[perf_df['กำไรสุทธิ'] > 0])
+            # 3. คำนวณ Metrics ทั้งหมดจาก perf_df ที่กรองแล้ว (พร้อมระบบป้องกัน KeyError และข้อมูลว่าง)
+            if 'perf_df' not in locals() and 'perf_df' not in globals():
+                perf_df = pd.DataFrame()
+            elif not isinstance(perf_df, pd.DataFrame):
+                perf_df = pd.DataFrame(perf_df if perf_df is not None else [])
+    
+            # เช็คชื่อคอลัมน์กำไรสุทธิว่าใช้ชื่อไหน ('Net_Profit' หรือ 'กำไรสุทธิ')
+            profit_col = 'Net_Profit' if 'Net_Profit' in perf_df.columns else ('กำไรสุทธิ' if 'กำไรสุทธิ' in perf_df.columns else None)
+    
+            total_trades = len(perf_df) if not perf_df.empty else 0
+    
+            if not perf_df.empty and profit_col:
+                win_trades = len(perf_df[perf_df[profit_col] > 0])
+                win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
+                
+                avg_win = perf_df[perf_df[profit_col] > 0][profit_col].mean() if win_trades > 0 else 0
+                avg_loss = perf_df[perf_df[profit_col] <= 0][profit_col].abs().mean() if (total_trades - win_trades) > 0 else 0
+                rr_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
+                
+                gross_profit = perf_df[perf_df[profit_col] > 0][profit_col].sum()
+                gross_loss = perf_df[perf_df[profit_col] <= 0][profit_col].abs().sum()
+                profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0)
+                
+                expectancy = (win_rate/100 * avg_win) - ((1 - win_rate/100) * avg_loss)
+                
+                # คำนวณเชิงลึก (Efficiency Analysis)
+                perf_df['Points'] = perf_df[profit_col] / 200
+                avg_win_pts = perf_df[perf_df['Points'] > 0]['Points'].mean() if len(perf_df[perf_df['Points'] > 0]) > 0 else 0
+                avg_loss_pts = perf_df[perf_df['Points'] <= 0]['Points'].abs().mean() if len(perf_df[perf_df['Points'] <= 0]) > 0 else 0
+                
+                # Max Drawdown (คำนวณจากช่วงที่กรอง)
+                if 'Date_Close' in perf_df.columns:
+                    temp_df = perf_df.sort_values('Date_Close')
+                    temp_df['Cumulative'] = temp_df[profit_col].cumsum()
+                    max_drawdown = (temp_df['Cumulative'] - temp_df['Cumulative'].cummax()).min() if not temp_df.empty else 0
+                else:
+                    max_drawdown = 0
+                    
+                # ระยะเวลาถือครอง
+                if 'Date_Open' in perf_df.columns and 'Date_Close' in perf_df.columns:
+                    perf_df['Date_Open'] = pd.to_datetime(perf_df['Date_Open'], errors='coerce')
+                    perf_df['Date_Close'] = pd.to_datetime(perf_df['Date_Close'], errors='coerce')
+                    perf_df['Hold_Days'] = (perf_df['Date_Close'] - perf_df['Date_Open']).dt.days
+                    avg_hold = perf_df['Hold_Days'].mean() if not perf_df.empty else 0
+                else:
+                    avg_hold = 0
             else:
-                win_trades = 0
-            win_rate = (win_trades / total_trades * 100) if total_trades > 0 else 0
-            
-            avg_win = perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].mean() if win_trades > 0 else 0
-            avg_loss = perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().mean() if (total_trades - win_trades) > 0 else 0
-            rr_ratio = (avg_win / avg_loss) if avg_loss > 0 else 0
-            
-            gross_profit = perf_df[perf_df['Net_Profit'] > 0]['Net_Profit'].sum()
-            gross_loss = perf_df[perf_df['Net_Profit'] <= 0]['Net_Profit'].abs().sum()
-            profit_factor = (gross_profit / gross_loss) if gross_loss > 0 else (gross_profit if gross_profit > 0 else 0)
-            
-            expectancy = (win_rate/100 * avg_win) - ((1 - win_rate/100) * avg_loss)
-            
-            # คำนวณเชิงลึก (Efficiency Analysis)
-            perf_df['Points'] = perf_df['Net_Profit'] / 200
-            avg_win_pts = perf_df[perf_df['Points'] > 0]['Points'].mean() if len(perf_df[perf_df['Points'] > 0]) > 0 else 0
-            avg_loss_pts = perf_df[perf_df['Points'] <= 0]['Points'].abs().mean() if len(perf_df[perf_df['Points'] <= 0]) > 0 else 0
-            
-            # Max Drawdown (คำนวณจากช่วงที่กรอง)
-            temp_df = perf_df.sort_values('Date_Close')
-            temp_df['Cumulative'] = temp_df['Net_Profit'].cumsum()
-            max_drawdown = (temp_df['Cumulative'] - temp_df['Cumulative'].cummax()).min() if not temp_df.empty else 0
-            
-            # ระยะเวลาถือครอง
-            perf_df['Date_Open'] = pd.to_datetime(perf_df['Date_Open'])
-            perf_df['Hold_Days'] = (perf_df['Date_Close'] - perf_df['Date_Open']).dt.days
-            avg_hold = perf_df['Hold_Days'].mean() if not perf_df.empty else 0
-        
+                # ถ้าไม่มีข้อมูลหรือไม่มีคอลัมน์ ให้กำหนดค่าเริ่มต้นเป็น 0 ทั้งหมด
+                win_rate, rr_ratio, profit_factor, expectancy = 0, 0, 0, 0
+                avg_win_pts, avg_loss_pts, max_drawdown, avg_hold = 0, 0, 0, 0
+    
             # 4. แสดงผลแบบ Grid
             # แถวแรก
             c1, c2, c3, c4 = st.columns(4)
