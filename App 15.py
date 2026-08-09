@@ -1433,7 +1433,19 @@ def main():
 
     df_all_stocks = st.session_state.df_all_stocks
 
-    # 🟢 เติม Sector อัตโนมัติให้ df_all_stocks ทันทีที่โหลดข้อมูลเสร็จ
+    # 🛡️ ป้องกันกรณี df_all_stocks หรือ df_sector_map ไม่ใช่ DataFrame หรือเป็นค่าว่าง/None
+    if not isinstance(df_all_stocks, pd.DataFrame):
+        df_all_stocks = pd.DataFrame(df_all_stocks)
+
+    # ตรวจสอบว่ามี df_sector_map อยู่ใน session หรือยัง ถ้ายังให้สร้างเป็น DataFrame เปล่า
+    if 'df_sector_map' not in st.session_state:
+        st.session_state.df_sector_map = pd.DataFrame()
+    
+    df_sector_map = st.session_state.df_sector_map
+    if not isinstance(df_sector_map, pd.DataFrame):
+        df_sector_map = pd.DataFrame(df_sector_map)
+
+    # 🟢 เติม Sector อัตโนมัติให้ df_all_stocks ทันทีที่โหลดข้อมูลเสร็จ (เช็คทั้งคู่ว่าไม่ว่างและเป็น DataFrame จริงๆ)
     if not df_all_stocks.empty and not df_sector_map.empty:
         target_col = 'หุ้น' if 'หุ้น' in df_all_stocks.columns else ('Ticker' if 'Ticker' in df_all_stocks.columns else None)
         if target_col:
