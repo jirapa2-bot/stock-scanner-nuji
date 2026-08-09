@@ -3748,17 +3748,17 @@ def main():
                                 total_value += market_value
                         
                         if portfolio_list:
-                            # ดึงยอดจาก session_state (ถ้ามี ถ้าไม่มีให้เป็น 0)
-                            cash_bal = st.session_state.get('cash_balance', 0.0)
+                            # คำนวณเงินสดคงเหลือที่แท้จริงจาก CashFlow หักลบต้นทุนหุ้นในพอร์ต
+                            cash_bal = load_total_cash_balance() if "load_total_cash_balance" in globals() else 0.0
                             
-                            # สรุปยอดรวม Metrics ด้านบน
+                            # สรุปยอดรวม Metrics ด้านบน (ใส่ป้ายชื่อ "เงินสดคงเหลือ" ให้เรียบร้อย)
                             col_s1, col_s2, col_s3, col_s4 = st.columns(4)
-                            col_s1.metric("", f"{cash_bal:,.0f} ฿")
+                            col_s1.metric("เงินสดคงเหลือ", f"{cash_bal:,.0f} ฿")
                             col_s2.metric("เงินลงทุนรวม", f"{total_invest:,.0f} ฿")
                             col_s3.metric("มูลค่าปัจจุบัน", f"{total_value:,.0f} ฿")
                             diff = total_value - total_invest
                             col_s4.metric("กำไร/ขาดทุนรวม", f"{diff:,.0f} ฿", delta=f"{((diff)/total_invest)*100:.2f}%" if total_invest > 0 else "0%")
-                        
+                            
                             # แสดงตารางพอร์ตหลัก
                             df_p = pd.DataFrame(portfolio_list)
                             df_display_p = df_p.drop(columns=['Sector']) if 'Sector' in df_p.columns else df_p
@@ -3782,8 +3782,6 @@ def main():
                                 st.session_state.edit_mode = True
                         else:
                             st.info("ยังไม่มีข้อมูลหุ้นในพอร์ตการลงทุนครับ")
-                    else:
-                        st.info("ยังไม่มีข้อมูลในชีต PortfolioData กรุณาตรวจสอบ Google Sheets อีกครั้งครับ")
                     
                     # --- ส่วนแสดงกราฟสรุปพอร์ต ---
                     st.divider()
