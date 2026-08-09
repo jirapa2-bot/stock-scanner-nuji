@@ -11,3 +11,4 @@ requests
 seaborn
 matplotlib
 openpyxl
+google-generativeai
