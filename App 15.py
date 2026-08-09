@@ -3586,17 +3586,30 @@ def main():
                     # 3. Bar Chart: กำไร/ขาดทุน (50%)
                     with col_p3:
                         st.subheader("📈 กำไร/ขาดทุนรายตัว")
-                        text_labels = [f"{row['กำไร/ขาดทุน']:,.0f} / {row['% กำไร/ขาดทุน']:.1f}%" for _, row in df_p.iterrows()]
-                        bar_colors = ['#26A69A' if val >= 0 else '#EF5350' for val in df_p['กำไร/ขาดทุน']]
                         
-                        fig_bar = go.Figure(data=[go.Bar(
-                            x=df_p['หุ้น'], y=df_p['กำไร/ขาดทุน'],
-                            marker_color=bar_colors, text=text_labels, textposition='auto'
-                        )])
-                        fig_bar.update_traces(textfont_size=10)
-                        fig_bar.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10))
-                        st.plotly_chart(fig_bar, use_container_width=True)
-                        st.markdown("<p style='text-align: center; font-size: 13px;'>กำไร/ขาดทุน เป็น THB และ %</p>", unsafe_allow_html=True)
+                        # 🛡️ ตรวจสอบและแปลง df_p ให้ปลอดภัยป้องกัน Error กรณีไม่มีข้อมูล
+                        if 'df_p' not in locals() and 'df_p' not in globals():
+                            df_p = pd.DataFrame()
+                        elif not isinstance(df_p, pd.DataFrame):
+                            df_p = pd.DataFrame(df_p if df_p is not None else [])
+                            
+                        # เช็คว่ามี DataFrame และมีคอลัมน์ที่ต้องใช้งานครบถ้วนไหม
+                        required_cols = ['กำไร/ขาดทุน', '% กำไร/ขาดทุน', 'หุ้น']
+                        if not df_p.empty and all(col in df_p.columns for col in required_cols):
+                            text_labels = [f"{row['กำไร/ขาดทุน']:,.0f} / {row['% กำไร/ขาดทุน']:.1f}%" for _, row in df_p.iterrows()]
+                            bar_colors = ['#26A69A' if val >= 0 else '#EF5350' for val in df_p['กำไร/ขาดทุน']]
+                            
+                            fig_bar = go.Figure(data=[go.Bar(
+                                x=df_p['หุ้น'], y=df_p['กำไร/ขาดทุน'],
+                                marker_color=bar_colors, text=text_labels, textposition='auto'
+                            )])
+                            fig_bar.update_traces(textfont_size=10)
+                            fig_bar.update_layout(height=300, margin=dict(l=10, r=10, t=30, b=10))
+                            st.plotly_chart(fig_bar, use_container_width=True)
+                            st.markdown("<p style='text-align: center; font-size: 13px;'>กำไร/ขาดทุน เป็น THB และ %</p>", unsafe_allow_html=True)
+                        else:
+                            # กรณีไม่มีข้อมูล ให้แสดงกล่องข้อความแทนการพ่น Error หน้าแดง
+                            st.info("📊 ยังไม่มีข้อมูลกำไร/ขาดทุนรายตัวในพอร์ตหุ้นสำหรับแสดงกราฟ")
                 
                     # --- ส่วนแดชบอร์ดวิเคราะห์ Sector Allocation ใน Tab Portfolio ---
                     # --- ส่วนแดชบอร์ดวิเคราะห์ Sector Allocation ใน Tab Portfolio ---
