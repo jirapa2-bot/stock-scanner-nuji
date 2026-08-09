@@ -1028,19 +1028,29 @@ def get_equity_curve_data():
     return df_equity
     
 def get_total_market_value():
-    """คำนวณมูลค่าหุ้นทั้งหมดที่ถืออยู่ ณ ราคาปัจจุบัน"""
-    total_val = 0
-    if "my_portfolio" in st.session_state:
-        for item in st.session_state.my_portfolio:
-            ticker = item['หุ้น']
-            shares = float(item['shares'])
+    # สมมติว่าดึงข้อมูลพอร์ตมาจากชีต
+    # ให้เปลี่ยนวิธีดึงค่า shares และ avg_price ให้ปลอดภัยขึ้นแบบนี้ครับ:
+    total_value = 0
+    
+    if "my_portfolio" in st.session_state and st.session_state["my_portfolio"]:
+        for item in st.session_state["my_portfolio"]:
+            # รองรับทั้งคอลัมน์ 'shares', 'จำนวน', หรือชื่ออื่นๆ
+            raw_shares = item.get('shares', item.get('จำนวน', 0))
             try:
-                # ดึงราคาปิดล่าสุด
-                m_price = yf.Ticker(f"{ticker}.BK").history(period="1d")['Close'].iloc[-1]
+                shares = float(str(raw_shares).replace(',', ''))
             except:
-                m_price = float(item['avg_price']) # ถ้าดึงไม่ได้ ให้ใช้ต้นทุนไปก่อน
-            total_val += (shares * m_price)
-    return total_val
+                shares = 0.0
+                
+            # รองรับทั้งคอลัมน์ราคาตลาด หรือต้นทุนเฉลี่ย
+            raw_price = item.get('m_price', item.get('ราคาตลาด', item.get('ต้นทุนเฉลี่ย', 0)))
+            try:
+                price = float(str(raw_price).replace(',', ''))
+            except:
+                price = 0.0
+                
+            total_value += shares * price
+            
+    return total_value
     
 def plot_dual_equity_curve(df_equity):
     # df_equity ต้องมีคอลัมน์: 'Date', 'Market_To_Market', 'Cash_Base'
