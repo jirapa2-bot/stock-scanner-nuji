@@ -314,8 +314,8 @@ def load_total_cash_balance():
         client = get_gsheet_client()
         spreadsheet_name = 'MyStockData'
         
-        # 1. ดึงยอดรวมจากชีต Cash_Flow ทั้งหมด
-        sheet_cash = client.open(spreadsheet_name).worksheet('CashFlow')
+        # 1. ดึงยอดรวมจากชีต cashflow ทั้งหมด (แก้ชื่อชีตให้ตรงกับใน Google Sheets)
+        sheet_cash = client.open(spreadsheet_name).worksheet('cashflow')
         records_cash = sheet_cash.get_all_records()
         
         total_cash_flow = 0.0
@@ -351,7 +351,7 @@ def load_total_cash_balance():
                     
                 # นำจำนวนหุ้นคูณต้นทุนเฉลี่ย แล้วบวกสะสมเข้าไป
                 total_stock_cost += (shares * avg_price)
-                    
+                
         # 3. เงินสดคงเหลือที่แท้จริง = ยอดรวม Cash Flow - ต้นทุนหุ้นในพอร์ต
         actual_cash_balance = total_cash_flow - total_stock_cost
         
