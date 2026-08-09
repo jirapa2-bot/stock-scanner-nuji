@@ -4786,7 +4786,7 @@ def main():
                         tfex_df = pd.DataFrame()
                     elif not isinstance(tfex_df, pd.DataFrame):
                         tfex_df = pd.DataFrame(tfex_df if tfex_df is not None else [])
-
+                
                     if not tfex_df.empty and 'Close_Price_Cleaned' in tfex_df.columns:
                         closed_positions = tfex_df[tfex_df['Close_Price_Cleaned'] > 0]
                     else:
@@ -4819,12 +4819,12 @@ def main():
                             'axis': {'range': [0, 100]},
                             'bar': {'color': "darkblue"},
                             'steps': [
-                                {'range': [0, 50], 'color': "#26A69A"},
-                                {'range': [50, 80], 'color": "#FBC02D"},
-                                {'range': [80, 100], 'color": "#EF5350"}
+                                {'range': [0, 50], 'color': '#26A69A'},
+                                {'range': [50, 80], 'color': '#FBC02D'},
+                                {'range': [80, 100], 'color': '#EF5350'}
                             ],
                             'threshold': {
-                                'line': {'color": "white", 'width': 4},
+                                'line': {'color': 'white', 'width': 4},
                                 'thickness': 0.75,
                                 'value': utilization
                             }
