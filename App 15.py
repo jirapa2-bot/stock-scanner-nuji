@@ -56,7 +56,7 @@ def get_gsheet_client():
 # 2. ฟังก์ชันจัดการ Google Sheets & ข้อมูลทรัพย์สิน (Wealth & Google Sheets)
 # =============================================================
 def load_data_safe(worksheet_name):
-    """ฟังก์ชันดึงข้อมูลจาก Google Sheets แบบปลอดภัย ป้องกัน Error dictionary update"""
+    """ฟังก์ชันดึงข้อมูลจาก Google Sheets แบบปลอดภัย ป้องกัน Error ชื่อคอลัมน์ซ้ำหรือว่าง"""
     try:
         client = get_gsheet_client()
         spreadsheet_name = 'MyStockData'
@@ -67,11 +67,38 @@ def load_data_safe(worksheet_name):
         if not rows or len(rows) < 2:
             return pd.DataFrame()
             
-        # ใช้แถวแรกเป็น Header และแถวที่เหลือเป็นข้อมูล
-        header = [str(h).strip() for h in rows[0]]
+        # ทำความสะอาดหัวตาราง ป้องกันค่าว่าง หรือชื่อซ้ำ
+        raw_header = rows[0]
+        header = []
+        seen_headers = {}
+        
+        for i, h in enumerate(raw_header):
+            h_str = str(h).strip()
+            if not h_str:  # ถ้าชื่อคอลัมน์ว่าง ให้ตั้งชื่อสำรอง
+                h_str = f"Unnamed_{i}"
+            
+            # ป้องกันชื่อคอลัมน์ซ้ำ (Pandas จะพังถ้า columns ซ้ำกัน)
+            if h_str in seen_headers:
+                seen_headers[h_str] += 1
+                h_str = f"{h_str}_{seen_headers[h_str]}"
+            else:
+                seen_headers[h_str] = 0
+                
+            header.append(h_str)
+
         data = rows[1:]
         
-        df = pd.DataFrame(data, columns=header)
+        # สร้าง DataFrame โดยกำหนดความยาวของ columns ให้ตรงกับข้อมูลแถวที่ยาวที่สุด (ป้องกันปัญหาเลื่อม)
+        max_cols = len(header)
+        cleaned_data = []
+        for r in data:
+            if len(r) < max_cols:
+                r = r + [''] * (max_cols - len(r))
+            elif len(r) > max_cols:
+                r = r[:max_cols]
+            cleaned_data.append(r)
+
+        df = pd.DataFrame(cleaned_data, columns=header)
         
         # กรองแถวที่ว่างเปล่าทิ้งไป
         df = df.dropna(how='all')
