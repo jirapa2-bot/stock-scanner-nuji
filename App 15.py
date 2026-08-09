@@ -4758,17 +4758,39 @@ def main():
                 else:
                     st.info("ไม่มีรายการที่ถืออยู่ในปัจจุบัน หรือยังไม่มีข้อมูลตาราง TFEX")
                 
-                # คำนวณ Margin Utilization
-                total_margin_used = open_positions['Size'].sum() * IM_PER_CONTRACT 
-                utilization = (total_margin_used / net_worth) * 100 if net_worth > 0 else 0
+                # 🛡️ ตรวจสอบความปลอดภัยและคำนวณ Margin Utilization อย่างปลอดภัย
+                if 'open_positions' not in locals() and 'open_positions' not in globals():
+                    open_positions = pd.DataFrame()
+                elif not isinstance(open_positions, pd.DataFrame):
+                    open_positions = pd.DataFrame(open_positions if open_positions is not None else [])
+
+                im_contract = globals().get('IM_PER_CONTRACT', 100000)
+                
+                # เช็คว่ามี DataFrame และมีคอลัมน์ 'Size' อยู่จริงไหมก่อนคำนวณ
+                if not open_positions.empty and 'Size' in open_positions.columns:
+                    total_margin_used = pd.to_numeric(open_positions['Size'], errors='coerce').fillna(0).sum() * im_contract
+                else:
+                    total_margin_used = 0.0
+
+                net_worth_val = net_worth if 'net_worth' in locals() and net_worth is not None else 0.0
+                utilization = (total_margin_used / net_worth_val) * 100 if net_worth_val > 0 else 0
                 
                 # --- แบ่งหน้าจอเป็น 2 คอลัมน์ เพื่อวางกราฟคู่กัน ---
                 col_left, col_right = st.columns(2)
                 
                 with col_left:
                     st.subheader("🎯 สถิติแพ้ / ชนะ (Win / Loss)")
-                    # กรองเฉพาะรายการที่ปิดสถานะแล้ว (Close_Price > 0) มาคำนวณ Win/Loss
-                    closed_positions = tfex_df[tfex_df['Close_Price_Cleaned'] > 0]
+                    
+                    # 🛡️ ป้องกัน tfex_df กรณีไม่มีข้อมูล
+                    if 'tfex_df' not in locals() and 'tfex_df' not in globals():
+                        tfex_df = pd.DataFrame()
+                    elif not isinstance(tfex_df, pd.DataFrame):
+                        tfex_df = pd.DataFrame(tfex_df if tfex_df is not None else [])
+
+                    if not tfex_df.empty and 'Close_Price_Cleaned' in tfex_df.columns:
+                        closed_positions = tfex_df[tfex_df['Close_Price_Cleaned'] > 0]
+                    else:
+                        closed_positions = pd.DataFrame()
                     
                     if not closed_positions.empty and 'Win_Lose' in closed_positions.columns:
                         win_count = len(closed_positions[closed_positions['Win_Lose'] == 'Win'])
@@ -4787,7 +4809,7 @@ def main():
                     st.plotly_chart(fig_winloss, use_container_width=True)
                 
                 with col_right:
-                    # 2. สร้าง Gauge Chart (กราฟ Margin เดิมของคุณ)
+                    # 2. สร้าง Gauge Chart (กราฟ Margin)
                     fig_gauge = go.Figure(go.Indicator(
                         mode = "gauge+number",
                         value = utilization,
@@ -4798,11 +4820,11 @@ def main():
                             'bar': {'color': "darkblue"},
                             'steps': [
                                 {'range': [0, 50], 'color': "#26A69A"},
-                                {'range': [50, 80], 'color': "#FBC02D"},
-                                {'range': [80, 100], 'color': "#EF5350"}
+                                {'range': [50, 80], 'color": "#FBC02D"},
+                                {'range': [80, 100], 'color": "#EF5350"}
                             ],
                             'threshold': {
-                                'line': {'color': "white", 'width': 4},
+                                'line': {'color": "white", 'width': 4},
                                 'thickness': 0.75,
                                 'value': utilization
                             }
