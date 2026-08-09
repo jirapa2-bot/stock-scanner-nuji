@@ -1761,13 +1761,25 @@ def main():
                 with st.spinner("กำลังดึงข้อมูล..."):
                     df_new = load_and_calculate_stock_data()
                     
+                    # 🛡️ แปลง df_new ให้เป็น DataFrame เสมอ ป้องกันกรณีดึงข้อมูลแล้วได้ค่าว่าง/List
+                    if not isinstance(df_new, pd.DataFrame):
+                        df_new = pd.DataFrame(df_new if df_new is not None else [])
+                    
                     # 🟢 เติม Sector อัตโนมัติหลังกดอัปเดตจาก Yahoo
                     if not df_new.empty and 'df_sector_map' in locals() and not df_sector_map.empty:
                         target_col = 'หุ้น' if 'หุ้น' in df_new.columns else 'Ticker'
                         if target_col in df_new.columns:
-                            df_new['Sector'] = df_new[target_col].apply(lambda x: get_sector_from_mapping(x, df_sector_map))
+                            try:
+                                df_new['Sector'] = df_new[target_col].apply(lambda x: get_sector_from_mapping(x, df_sector_map))
+                            except Exception:
+                                pass
                     
-                    save_to_gsheet(df_new)
+                    # บันทึกลง Google Sheets (ถ้ามีข้อมูล)
+                    if not df_new.empty:
+                        try:
+                            save_to_gsheet(df_new)
+                        except Exception:
+                            pass
                     
                     # 📌 อัปเดตข้อมูลลง Session State เพื่อให้หน้าเว็บรับข้อมูลชุดใหม่ทันที
                     st.session_state.df_all_stocks = df_new 
@@ -1777,9 +1789,18 @@ def main():
                 # 📌 ดึงข้อมูลจาก Session State ที่โหลดไว้แล้วจาก def main() แทนการโหลดซ้ำจาก Google Sheets
                 df_all_stocks = st.session_state.get('df_all_stocks', pd.DataFrame())
                 
+                # 🛡️ แปลงให้เป็น DataFrame เสมอ
+                if not isinstance(df_all_stocks, pd.DataFrame):
+                    df_all_stocks = pd.DataFrame(df_all_stocks if df_all_stocks is not None else [])
+                
                 # ถ้าใน Session State ยังว่างเปล่า (เช่นเปิดแอปมาครั้งแรกแล้วโหลดไม่ติด) ค่อยดึงจาก Sheet อีกรอบ
                 if df_all_stocks.empty:
-                    df_all_stocks = load_from_gsheet()
+                    try:
+                        raw_data = load_from_gsheet()
+                        df_all_stocks = pd.DataFrame(raw_data if raw_data is not None else [])
+                    except Exception:
+                        df_all_stocks = pd.DataFrame()
+                        
                     st.session_state.df_all_stocks = df_all_stocks
                 
             col_input, col_metrics = st.columns([1, 3])
