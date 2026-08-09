@@ -1242,11 +1242,20 @@ def load_and_calculate_stock_data_optimized():
             
     status_text.empty()
     return pd.DataFrame(stock_list)
-
-
-###################################################################
-# # --- ฟังก์ชัน Main ---
-###################################################################
+    
+# 🛡️ ฟังก์ชันกลางสำหรับดึงข้อมูลจาก Google Sheets แบบปลอดภัย (ป้องกันกรณีชีตว่างมีแต่ Header)
+def safe_get_records(sheet):
+    try:
+        if sheet is None:
+            return []
+        data = sheet.get_all_records()
+        # ถ้าไม่มีข้อมูลแถวข้างใน (เป็น list เปล่า) ให้คืนค่าเป็น list ว่าง
+        if not data:
+            return []
+        return data
+    except Exception as e:
+        # หากเกิด Error ใดๆ ให้คืนค่าเป็น list ว่าง ป้องกันแอปพัง
+        return []
 
 def highlight_rsi_zones(row):
     if row['RSI_14'] >= 65.0:
