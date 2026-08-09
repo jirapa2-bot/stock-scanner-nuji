@@ -55,6 +55,32 @@ def get_gsheet_client():
 # =============================================================
 # 2. ฟังก์ชันจัดการ Google Sheets & ข้อมูลทรัพย์สิน (Wealth & Google Sheets)
 # =============================================================
+def load_data_safe(worksheet_name):
+    """ฟังก์ชันดึงข้อมูลจาก Google Sheets แบบปลอดภัย ป้องกัน Error dictionary update"""
+    try:
+        client = get_gsheet_client()
+        spreadsheet_name = 'MyStockData'
+        sheet = client.open(spreadsheet_name).worksheet(worksheet_name)
+        
+        # ดึงข้อมูลทั้งหมดเป็น List ของ List
+        rows = sheet.get_all_values()
+        if not rows or len(rows) < 2:
+            return pd.DataFrame()
+            
+        # ใช้แถวแรกเป็น Header และแถวที่เหลือเป็นข้อมูล
+        header = [str(h).strip() for h in rows[0]]
+        data = rows[1:]
+        
+        df = pd.DataFrame(data, columns=header)
+        
+        # กรองแถวที่ว่างเปล่าทิ้งไป
+        df = df.dropna(how='all')
+        
+        return df
+    except Exception as e:
+        st.error(f"❌ โหลดชีต {worksheet_name} ไม่สำเร็จ: {e}")
+        return pd.DataFrame()
+        
 def get_worksheet_safely(client, spreadsheet_name, worksheet_name, retries=3, delay=2):
     """ฟังก์ชันเปิด Google Sheet พร้อมระบบป้องกันและลองใหม่เมื่อติดปัญหา Quota Exceeded (429)"""
     for attempt in range(retries):
@@ -79,12 +105,11 @@ def get_worksheet_safely(client, spreadsheet_name, worksheet_name, retries=3, de
     
 def check_and_auto_stamp_portfolio(client, current_total_value):
     try:
-        sheet_history = client.open('MyStockData').worksheet('Stock_TFEX_History')
-        data = sheet_history.get_all_records()
+        df = load_data_safe('Stock_TFEX_History')
         
         last_recorded_month = ""
-        if data:
-            last_date_str = str(data[-1].get('Date', ''))
+        if not df.empty and 'Date' in df.columns:
+            last_date_str = str(df.iloc[-1]['Date'])
             if last_date_str:
                 last_recorded_month = last_date_str[:7] # ตัดเอาแค่ 'YYYY-MM'
         
@@ -94,6 +119,7 @@ def check_and_auto_stamp_portfolio(client, current_total_value):
         target_date_str = prev_month_date.strftime('%Y-%m-%d')
         
         if last_recorded_month != target_month_str:
+            sheet_history = client.open('MyStockData').worksheet('Stock_TFEX_History')
             sheet_history.append_row([target_date_str, current_total_value])
             st.toast(f"📊 ระบบบันทึกยอดพอร์ตหุ้น+TFEX สิ้นเดือนอัตโนมัติเรียบร้อย: {target_month_str}", icon="✅")
             
@@ -165,11 +191,8 @@ def extract_pvd_from_image(image_file, year_be, month_name="ธันวาค�
         
 def get_latest_pvd_value():
     try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('Provident_Fund')
-        data = sheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
+        df = load_data_safe('Provident_Fund')
+        if not df.empty and 'Grand_Total' in df.columns:
             latest_val = str(df.iloc[-1]['Grand_Total']).replace(',', '')
             return float(latest_val)
     except:
@@ -178,26 +201,18 @@ def get_latest_pvd_value():
 
 def get_latest_insurance_value():
     try:
-        client = get_gsheet_client()
-        sheet_ins = client.open('MyStockData').worksheet('Insurance')
-        data = sheet_ins.get_all_records()
-        if data:
-            df_ins = pd.DataFrame(data)
-            if not df_ins.empty and 'Redemption_Value' in df_ins.columns:
-                return float(str(df_ins.iloc[-1]['Redemption_Value']).replace(',', ''))
+        df_ins = load_data_safe('Insurance')
+        if not df_ins.empty and 'Redemption_Value' in df_ins.columns:
+            return float(str(df_ins.iloc[-1]['Redemption_Value']).replace(',', ''))
     except Exception:
         pass
     return 0.0
 
 def get_latest_coop_value():
     try:
-        client = get_gsheet_client()
-        sheet_coop = client.open('MyStockData').worksheet('Coop')
-        data = sheet_coop.get_all_records()
-        if data:
-            df_coop = pd.DataFrame(data)
-            if not df_coop.empty and 'Coop_Value' in df_coop.columns:
-                return float(str(df_coop.iloc[-1]['Coop_Value']).replace(',', ''))
+        df_coop = load_data_safe('Coop')
+        if not df_coop.empty and 'Coop_Value' in df_coop.columns:
+            return float(str(df_coop.iloc[-1]['Coop_Value']).replace(',', ''))
     except Exception:
         pass
     return 0.0
@@ -213,8 +228,10 @@ def update_trade_close(spreadsheet_id, trade_id, close_price, date_close):
     spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM' 
     sheet = client.open_by_key(spreadsheet_id).worksheet('TFEX_History')
     
-    records = sheet.get_all_records()
-    df = pd.DataFrame(records)
+    df = load_data_safe('TFEX_History')
+    if df.empty:
+        st.error("ไม่พบข้อมูลใน TFEX_History")
+        return False
     
     idx_list = df.index[df['Trade_ID'] == trade_id].tolist()
     if not idx_list:
@@ -306,47 +323,34 @@ def log_to_sheet(sheet_name, row_data):
 def load_total_cash_balance():
     """คำนวณเงินสดคงเหลือที่แท้จริง: (ยอดรวม Cash Flow ทั้งหมด) - (ผลรวม shares * avg_price ของทุกหุ้นในพอร์ต)"""
     try:
-        client = get_gsheet_client()
-        spreadsheet_name = 'MyStockData'
-        
-        # 1. ดึงยอดรวมจากชีต Cash_Flow ทั้งหมด
-        sheet_cash = client.open(spreadsheet_name).worksheet('CashFlow')
-        records_cash = sheet_cash.get_all_records()
-        
+        # 1. ดึงยอดรวมจากชีต CashFlow ทั้งหมด
+        df_cash = load_data_safe('CashFlow')
         total_cash_flow = 0.0
-        if records_cash:
-            df_cash = pd.DataFrame(records_cash)
-            if 'Amount' in df_cash.columns:
-                df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
-                total_cash_flow = float(df_cash['Amount'].sum())
+        if not df_cash.empty and 'Amount' in df_cash.columns:
+            df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
+            total_cash_flow = float(df_cash['Amount'].sum())
                 
         # 2. บังคับคำนวณต้นทุนหุ้นทั้งหมดจาก shares * avg_price โดยตรง
-        sheet_portfolio = client.open(spreadsheet_name).worksheet('PortfolioData')
-        records_portfolio = sheet_portfolio.get_all_records()
-        
+        df_portfolio = load_data_safe('PortfolioData')
         total_stock_cost = 0.0
-        if records_portfolio:
-            for row in records_portfolio:
-                # จัดการ key ให้สะอาด ป้องกันปัญหาเรื่องเว้นวรรค
+        if not df_portfolio.empty:
+            for _, row in df_portfolio.iterrows():
                 cleaned_row = {str(k).strip(): v for k, v in row.items()}
                 
                 try:
-                    # ดึงค่าหุ้น (รองรับทั้งชื่อภาษาอังกฤษและไทย)
                     shares_val = cleaned_row.get('shares', cleaned_row.get('จำนวน', 0))
                     shares = float(str(shares_val).replace(',', '')) if shares_val not in [None, ''] else 0.0
                 except (ValueError, TypeError):
                     shares = 0.0
                     
                 try:
-                    # ดึงค่าต้นทุนเฉลี่ย (รองรับทั้งชื่อภาษาอังกฤษและไทย)
                     avg_val = cleaned_row.get('avg_price', cleaned_row.get('ต้นทุนเฉลี่ย', 0.0))
                     avg_price = float(str(avg_val).replace(',', '')) if avg_val not in [None, ''] else 0.0
                 except (ValueError, TypeError):
                     avg_price = 0.0
                     
-                # นำจำนวนหุ้นคูณต้นทุนเฉลี่ย แล้วบวกสะสมเข้าไป
                 total_stock_cost += (shares * avg_price)
-                    
+                
         # 3. เงินสดคงเหลือที่แท้จริง = ยอดรวม Cash Flow - ต้นทุนหุ้นในพอร์ต
         actual_cash_balance = total_cash_flow - total_stock_cost
         
@@ -367,7 +371,6 @@ if "cash_balance" not in st.session_state:
 
 def save_cash_balance(balance):
     try:
-        # อัปเดตค่าใน session_state ทันที
         st.session_state.cash_balance = float(balance)
         st.toast(f"บันทึกยอดเงินสดคงเหลือสำเร็จ: {balance:,.2f} บาท", icon="✅")
     except Exception as e:
@@ -467,7 +470,6 @@ def save_dividend_data(df_div=None):
         st.error(f"❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
         return False
 
-
 # =============================================================
 # 7. ฟังก์ชันการคำนวณทางเทคนิคและดึงข้อมูลตลาด (Technical & Market Data)
 # =============================================================
@@ -493,14 +495,8 @@ def calculate_atr(df, period=14):
 
 @st.cache_data(ttl=60)
 def load_data(sheet_name):
-    try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet(sheet_name) 
-        data = sheet.get_all_records()
-        return pd.DataFrame(data)
-    except Exception as e:
-        st.error(f"โหลดข้อมูล {sheet_name} ไม่สำเร็จ: {e}")
-        return pd.DataFrame()
+    # ปรับมาใช้ load_data_safe เพื่อความปลอดภัยของโครงสร้างข้อมูล
+    return load_data_safe(sheet_name)
 
 
 @st.cache_data(ttl=3600)  
@@ -566,10 +562,8 @@ def save_journal():
 
 def load_journal():
     try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('JournalData')
-        data = sheet.get_all_records()
-        st.session_state.journal_data = data
+        df = load_data_safe('JournalData')
+        st.session_state.journal_data = df.to_dict('records') if not df.empty else []
     except Exception as e:
         st.error(f"ไม่สามารถโหลดข้อมูลจาก Google Sheets ได้: {e}")
         st.session_state.journal_data = []
@@ -597,11 +591,8 @@ def save_portfolio():
 
 def load_portfolio():
     try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('PortfolioData')
-        data = sheet.get_all_records()
-        
-        st.session_state.my_portfolio = data if data else []
+        df = load_data_safe('PortfolioData')
+        st.session_state.my_portfolio = df.to_dict('records') if not df.empty else []
     except Exception as e:
         st.error(f"โหลดพอร์ตไม่สำเร็จ: {e}")
         st.session_state.my_portfolio = []
@@ -680,7 +671,7 @@ def calculate_total_portfolio_value():
                     total_stock_value += (shares * float(market_price))
                 except:
                     pass
-                    
+                
         return total_stock_value
         
     except Exception as e:
@@ -688,7 +679,7 @@ def calculate_total_portfolio_value():
         
 def total_invested_capital():
     # ดึงข้อมูลกระแสเงินสดมาคำนวณเงินลงทุนสุทธิ
-    cash_df = load_data("Cash_Flow")
+    cash_df = load_data_safe("Cash_Flow")
     if not cash_df.empty and 'Type' in cash_df.columns and 'Amount' in cash_df.columns:
         total_deposit = cash_df[cash_df['Type'].astype(str).str.lower() == 'deposit']['Amount'].sum()
         total_withdraw = cash_df[cash_df['Type'].astype(str).str.lower() == 'withdraw']['Amount'].sum()
@@ -698,7 +689,6 @@ def total_invested_capital():
 def save_portfolio_snapshot():
     """บันทึกมูลค่าพอร์ตปัจจุบันลงไฟล์/Sheet ประวัติ"""
     try:
-        # ใช้ .get() เพื่อป้องกัน KeyError รองรับทั้ง 'shares' และ 'จำนวน', รวมถึง 'current_price' และ 'avg_price'
         total_stock_value = sum([
             float(item.get('shares', item.get('จำนวน', 0))) * float(item.get('current_price', item.get('avg_price', 0))) 
             for item in st.session_state.my_portfolio
@@ -707,29 +697,30 @@ def save_portfolio_snapshot():
         current_cash = st.session_state.get('cash_balance', 0)
         total_equity = total_stock_value + current_cash
         
-        # บันทึกข้อมูลลงในตาราง Portfolio_History
-        # รูปแบบ: [วันที่, มูลค่าพอร์ตรวม, เงินต้นสะสม]
         log_to_sheet("Portfolio_History", [str(datetime.now().date()), total_equity, total_invested_capital()])
         
     except Exception as e:
         print(f"DEBUG: Error ใน save_portfolio_snapshot: {e}")
     
 def display_performance_dashboard():
-    # 1. โหลดข้อมูล
-    client = get_gsheet_client()
-    sheet = client.open('MyStockData').worksheet('Portfolio_History')
-    data = sheet.get_all_records()
-    df = pd.DataFrame(data)
+    # 1. โหลดข้อมูลผ่าน load_data_safe
+    df = load_data_safe('Portfolio_History')
     
-    # ตรวจสอบว่ามีข้อมูลจริงก่อนวาดกราฟ
     if df.empty:
         st.info("ยังไม่มีข้อมูลในตาราง Portfolio_History ครับ")
         return
 
+    # แปลงชนิดข้อมูลตัวเลขและวันที่ให้ถูกต้อง
     df['Date'] = pd.to_datetime(df['Date'])
-    df['Indexed_Performance'] = (df['Market_Value'] / df['Market_Value'].iloc[0]) * 100
+    df['Market_Value'] = pd.to_numeric(df['Market_Value'], errors='coerce').fillna(0)
+    df['Invested_Capital'] = pd.to_numeric(df['Invested_Capital'], errors='coerce').fillna(0)
     
-    # 2. แสดงผล (ย้ายส่วนแสดงผลมาไว้ในฟังก์ชันนี้)
+    if df['Market_Value'].iloc[0] != 0:
+        df['Indexed_Performance'] = (df['Market_Value'] / df['Market_Value'].iloc[0]) * 100
+    else:
+        df['Indexed_Performance'] = 100
+    
+    # 2. แสดงผล
     col1, col2 = st.columns(2)
     with col1:
         st.subheader("🚀 ความสามารถในการทำกำไร (Indexed)")
@@ -749,7 +740,6 @@ def backfill_portfolio_history():
     df['วันที่'] = pd.to_datetime(df['วันที่'])
     df = df.sort_values('วันที่')
     
-    # กำหนดช่วงเวลา (ให้แน่ใจว่าเป็น datetime ไม่มี timezone)
     all_dates = pd.date_range(start=df['วันที่'].min(), end=pd.Timestamp.now().normalize())
     history_list = []
     
@@ -764,25 +754,18 @@ def backfill_portfolio_history():
         except:
             pass
 
-    # โหลดข้อมูล CashFlow เผื่อไว้คำนวณเงินลงทุนจริง (ถ้ามี)
-    try:
-        client = get_gsheet_client()
-        sheet_cash = client.open('MyStockData').worksheet('CashFlow')
-        cash_data = sheet_cash.get_all_records()
-        df_cash = pd.DataFrame(cash_data) if cash_data else pd.DataFrame()
-        if not df_cash.empty:
-            df_cash.columns = df_cash.columns.str.strip()
-            df_cash['Date'] = pd.to_datetime(df_cash['Date'], errors='coerce')
-            df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
-    except:
-        df_cash = pd.DataFrame()
+    # โหลดข้อมูล CashFlow
+    df_cash = load_data_safe('CashFlow')
+    if not df_cash.empty:
+        df_cash.columns = df_cash.columns.str.strip()
+        df_cash['Date'] = pd.to_datetime(df_cash['Date'], errors='coerce')
+        df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
 
     # 3. ลูปคำนวณรายวัน
     for date in all_dates:
         date = date.normalize() 
         df_upto = df[df['วันที่'] <= date]
         
-        # คำนวณจำนวนหุ้น
         current_holdings = {}
         for ticker in all_tickers:
             if ticker in price_history:
@@ -792,7 +775,6 @@ def backfill_portfolio_history():
                 if shares > 0:
                     current_holdings[ticker] = shares
         
-        # คำนวณ Market Value
         market_val = 0
         for ticker, shares in current_holdings.items():
             if ticker in price_history:
@@ -801,12 +783,10 @@ def backfill_portfolio_history():
                 if not price_at_date.empty:
                     market_val += (shares * price_at_date.iloc[-1])
         
-        # [จุดที่แก้ไข] คำนวณเงินลงทุนจริงจาก CashFlow สะสม (ไม่เอาเงินหมุนจากการขายมานับซ้ำ)
         if not df_cash.empty and 'Date' in df_cash.columns and 'Amount' in df_cash.columns:
             df_cash_upto = df_cash[df_cash['Date'] <= date]
             invested = df_cash_upto['Amount'].sum() if not df_cash_upto.empty else 1283405
         else:
-            # ถ้าไม่มีชีท CashFlow ให้ใช้ทุนเริ่มต้นตายตัว หรือใช้วิ่ายอดซื้อวันแรกสุดครั้งเดียว
             invested = 1283405
         
         history_list.append({
@@ -832,16 +812,14 @@ def backfill_portfolio_history():
         st.error(f"เกิดข้อผิดพลาดในการบันทึก Portfolio_History: {e}")
     
 def get_current_portfolio_value():
-    # ฟังก์ชันนี้ดึงราคาปัจจุบันของหุ้นทุกตัวใน st.session_state.my_portfolio
     total_market_value = 0
     for item in st.session_state.my_portfolio:
         ticker = item['หุ้น']
         shares = item['shares']
-        # ดึงราคาตลาดปัจจุบัน (Real-time)
         try:
             m_price = yf.Ticker(f"{ticker}.BK").history(period="1d")['Close'].iloc[-1]
         except:
-            m_price = item['avg_price'] # ถ้าดึงไม่ได้ ให้ใช้ราคาต้นทุน
+            m_price = item['avg_price'] 
         total_market_value += (shares * m_price)
     return total_market_value
 
@@ -850,60 +828,41 @@ def update_stock_data(df):
     spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
     sheet = client.open_by_key(spreadsheet_id).worksheet('StockData')
     
-    # 1. เตรียมข้อมูล: แปลง Header และข้อมูลเป็น list
     data_to_update = [df.columns.values.tolist()] + df.values.tolist()
-    
-    # 2. ใช้ update แทน clear() 
-    # วิธีนี้จะเขียนทับตั้งแต่เซลล์ A1 ยาวไปจนจบข้อมูลใหม่ 
-    # ข้อมูลเดิมจะถูกเขียนทับด้วยค่าใหม่ทันที โดยไม่ลบโครงสร้าง Sheet ทิ้ง
     sheet.update('A1', data_to_update)
     
     print("DEBUG: อัปเดตข้อมูลหุ้นเรียบร้อย!")
     
-# 2. ฟังก์ชันอเนกประสงค์ (เอามาแทรกตรงนี้)    
 def log_cash_transaction(date, trans_type, amount, note):
     try:
         client = get_gsheet_client()
         sheet = client.open('MyStockData').worksheet('CashFlow')
         
-        # เตรียมข้อมูลที่จะบันทึก (Date, Type, Amount, Note)
         row_data = [str(date), trans_type, amount, note]
-        
-        # เพิ่มแถวใหม่ต่อท้ายข้อมูลเดิม
         sheet.append_row(row_data)
         st.toast("บันทึกรายการเงินสดเรียบร้อย!", icon="💰")
     except Exception as e:
         st.error(f"บันทึกรายการเงินสดไม่สำเร็จ: {e}")
         
-# ฟังก์ชัน Load ไฟล์ CSV/Excel (ยังคงใช้ได้เหมือนเดิม)
 def load_data_from_file(uploaded_file):
     if uploaded_file is not None:
         try:
             df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith('.csv') else pd.read_excel(uploaded_file)
             
-            # แปลงวันที่เป็น String
             if 'วันที่' in df.columns:
                 df['วันที่'] = pd.to_datetime(df['วันที่']).dt.strftime('%Y-%m-%d')
             
             st.session_state.journal_data = df.to_dict('records')
-            save_journal() # เรียกฟังก์ชันบันทึกลง Google Sheets
+            save_journal() 
             st.success("นำเข้าข้อมูลสำเร็จ!")
             st.rerun()
         except Exception as e:
             st.error(f"เกิดข้อผิดพลาดในการอ่านไฟล์: {e}")
 
 def get_equity_curve_data():
-    # 1. เตรียมข้อมูล Journal
     if "journal_data" not in st.session_state or not st.session_state.journal_data:
-        # ลองโหลดจาก Google Sheets ดูก่อนถ้า session ว่าง
-        try:
-            client = get_gsheet_client()
-            sheet = client.open('MyStockData').worksheet('JournalData')
-            data = sheet.get_all_records()
-            if not data:
-                return pd.DataFrame()
-            df_j = pd.DataFrame(data)
-        except:
+        df_j = load_data_safe('JournalData')
+        if df_j.empty:
             return pd.DataFrame()
     else:
         df_j = pd.DataFrame(st.session_state.journal_data)
@@ -911,10 +870,8 @@ def get_equity_curve_data():
     if df_j.empty:
         return pd.DataFrame()
 
-    # ทำความสะอาดชื่อคอลัมน์ (ตัดช่องว่างหน้าหลัง)
     df_j.columns = df_j.columns.str.strip()
     
-    # ค้นหาคอลัมน์กำไร/ขาดทุนอัตโนมัติ (รองรับหลายชื่อที่เป็นไปได้)
     pnl_col_candidates = ['กำไร/ขาดทุน', 'กำไร/ขาดทุน (บาท)', 'Net_Profit', 'Realized', 'PnL']
     pnl_column = next((col for col in pnl_col_candidates if col in df_j.columns), None)
     
@@ -924,7 +881,6 @@ def get_equity_curve_data():
         
     df_j['PnL'] = pd.to_numeric(df_j[pnl_column], errors='coerce').fillna(0)
     
-    # ค้นหาคอลัมน์วันที่ขายหรือวันที่ปิด
     date_col_candidates = ['วันที่ขาย', 'Date_Close', 'วันที่']
     date_column = next((col for col in date_col_candidates if col in df_j.columns), None)
     
@@ -933,14 +889,8 @@ def get_equity_curve_data():
     else:
         df_j['Date_Sell'] = pd.to_datetime(pd.Timestamp.today())
 
-    # 2. เตรียมข้อมูล CashFlow (ป้องกันกรณีชีท CashFlow Error)
-    try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('CashFlow')
-        cash_data = sheet.get_all_records()
-        df_cash = pd.DataFrame(cash_data) if cash_data else pd.DataFrame()
-    except:
-        df_cash = pd.DataFrame()
+    # โหลด CashFlow ผ่าน load_data_safe
+    df_cash = load_data_safe('CashFlow')
 
     if not df_cash.empty:
         df_cash.columns = df_cash.columns.str.strip()
@@ -954,7 +904,6 @@ def get_equity_curve_data():
     else:
         daily_cash = pd.DataFrame(columns=['Date', 'Net_Cash_In'])
 
-    # 3. คำนวณ PnL รายวัน
     df_j['Date'] = df_j['Date_Sell'].dt.normalize()
     daily_pnl = df_j.groupby('Date')['PnL'].sum().cumsum().reset_index()
     daily_pnl.columns = ['Date', 'Cumulative_PnL']
@@ -962,7 +911,6 @@ def get_equity_curve_data():
     if daily_pnl.empty:
         return pd.DataFrame()
 
-    # 4. รวมตาราง Equity
     if not daily_cash.empty:
         df_equity = pd.merge(daily_pnl, daily_cash, on='Date', how='outer').fillna(0)
     else:
@@ -974,7 +922,6 @@ def get_equity_curve_data():
     initial_balance = 69102.44  
     df_equity['Cash_Base'] = df_equity['Cumulative_PnL'] + df_equity['Net_Cash_In'] + initial_balance
     
-    # 5. คำนวณ M2M
     current_market_val = get_total_market_value()
     df_equity['Market_To_Market'] = (df_equity['Cash_Base'] - df_equity['Cumulative_PnL']) + current_market_val
     
@@ -988,10 +935,9 @@ def get_total_market_value():
             ticker = item['หุ้น']
             shares = float(item['shares'])
             try:
-                # ดึงราคาปิดล่าสุด
                 m_price = yf.Ticker(f"{ticker}.BK").history(period="1d")['Close'].iloc[-1]
             except:
-                m_price = float(item['avg_price']) # ถ้าดึงไม่ได้ ให้ใช้ต้นทุนไปก่อน
+                m_price = float(item['avg_price']) 
             total_val += (shares * m_price)
     return total_val
     
