@@ -569,16 +569,13 @@ def get_gsheet_client():
     ]
     
     try:
-        # 1. ดึงจาก Environment (กรณีรันบน GitHub Actions)
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
             raw_creds = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
             creds_dict = json.loads(raw_creds) if isinstance(raw_creds, str) else dict(raw_creds)
         else:
-            # 2. ดึงจาก Streamlit Cloud Secrets (แปลงรูปแบบให้ปลอดภัยด้วยการดึงผ่าน dict comprehension)
-            secret_sec = st.secrets["gcp_service_account"]
-            creds_dict = {k: v for k, v in secret_sec.items()}
+            # ดึงข้อมูลจาก st.secrets แบบดึงมาตรงๆ เป็น dict ได้เลยเมื่อเขียนรูปแบบ TOML ถูกต้อง
+            creds_dict = dict(st.secrets["gcp_service_account"])
             
-        # สร้าง Credentials
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
         
