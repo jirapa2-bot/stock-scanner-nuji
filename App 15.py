@@ -569,21 +569,33 @@ def get_gsheet_client():
     ]
     
     try:
+        # 1. ดึงค่าดิบจาก Environment หรือ Streamlit Secrets
         if 'GOOGLE_APPLICATION_CREDENTIALS' in os.environ:
-            creds_dict = json.loads(os.environ['GOOGLE_APPLICATION_CREDENTIALS'])
+            raw_creds = os.environ['GOOGLE_APPLICATION_CREDENTIALS']
+            if isinstance(raw_creds, str):
+                creds_dict = json.loads(raw_creds)
+            else:
+                creds_dict = dict(raw_creds)
         else:
-            creds_dict = dict(st.secrets["gcp_service_account"])
-            
+            # ดึงจาก st.secrets และแปลงเป็น dict ธรรมดาอย่างปลอดภัย
+            secret_sec = st.secrets["gcp_service_account"]
+            if hasattr(secret_sec, "to_dict"):
+                creds_dict = secret_sec.to_dict()
+            else:
+                creds_dict = dict(secret_sec)
+        
+        # ตรวจสอบเบื้องต้นว่า dictionary มีค่าครบถ้วน
+        if not isinstance(creds_dict, dict) or len(creds_dict) == 0:
+            raise ValueError("Service Account credentials ว่างเปล่าหรือไม่ใช่ Dictionary")
+
+        # สร้าง Credentials
         creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
         return gspread.authorize(creds)
-    except Exception as e:
-        # บรรทัดนี้จะบอกเลยว่าพังเพราะอะไร (เช่น หาไฟล์ไม่ได้รับสิทธิ์ หรือกุญแจผิด)
-        st.error(f"⚠️ Google Sheets Connection Error: {e}")
-        raise e
         
     except Exception as e:
-        # ถ้าพัง ให้ print ออกมาดูใน Log ของ GitHub
-        print(f"Error ในการเชื่อมต่อ Google Sheets: {e}")
+        st.error(f"❌ Google Sheets Connection Error: {e}")
+        # สั่งแสดงหน้าตาของข้อมูลดิบที่อ่านได้ เพื่อเช็กความถูกต้อง
+        st.write("Debug - ข้อมูล credentials ที่อ่านได้:", type(e))
         raise e
 # =============================================================
 # 2. ฟังก์ชัน Load/Save ข้อมูล
