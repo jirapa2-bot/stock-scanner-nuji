@@ -26,6 +26,21 @@ from PIL import Image
 from datetime import datetime, timedelta
 import time
 from gspread.exceptions import APIError
+
+import gspread
+import pandas as pd
+import streamlit as st
+from google.oauth2.service_account import Credentials
+
+
+# 1. ประกาศฟังก์ชันเชื่อมต่อ Google Sheets (ใช้ Streamlit Secrets ตามที่แนะนำไปก่อนหน้านี้)
+def get_gsheet_client():
+  scopes = ["https://www.googleapis.com/auth/spreadsheets"]
+  # ดึงค่า credentials จาก Streamlit Secrets
+  creds_dict = dict(st.secrets["gcp_service_account"])
+  creds = Credentials.from_service_account_info(creds_dict, scopes=scopes)
+  client = gspread.authorize(creds)
+  return client
 # =============================================================
 # 1. ฟังก์ชันจัดการ Google Sheets (Utility)
 # =============================================================
@@ -309,57 +324,66 @@ def log_to_sheet(sheet_name, row_data):
         return False
 
 def load_total_cash_balance():
-    """คำนวณเงินสดคงเหลือที่แท้จริง: (ยอดรวม Cash Flow ทั้งหมด) - (ผลรวม shares * avg_price ของทุกหุ้นในพอร์ต)"""
-    try:
-        client = get_gsheet_client()
-        spreadsheet_name = 'MyStockData'
-        
-        # 1. ดึงยอดรวมจากชีต cashflow ทั้งหมด (แก้ชื่อชีตให้ตรงกับใน Google Sheets)
-        sheet_cash = client.open(spreadsheet_name).worksheet('cashflow')
-        records_cash = sheet_cash.get_all_records()
-        
-        total_cash_flow = 0.0
-        if records_cash:
-            df_cash = pd.DataFrame(records_cash)
-            if 'Amount' in df_cash.columns:
-                df_cash['Amount'] = pd.to_numeric(df_cash['Amount'], errors='coerce').fillna(0)
-                total_cash_flow = float(df_cash['Amount'].sum())
-                
-        # 2. บังคับคำนวณต้นทุนหุ้นทั้งหมดจาก shares * avg_price โดยตรง
-        sheet_portfolio = client.open(spreadsheet_name).worksheet('PortfolioData')
-        records_portfolio = sheet_portfolio.get_all_records()
-        
-        total_stock_cost = 0.0
-        if records_portfolio:
-            for row in records_portfolio:
-                # จัดการ key ให้สะอาด ป้องกันปัญหาเรื่องเว้นวรรค
-                cleaned_row = {str(k).strip(): v for k, v in row.items()}
-                
-                try:
-                    # ดึงค่าหุ้น (รองรับทั้งชื่อภาษาอังกฤษและไทย)
-                    shares_val = cleaned_row.get('shares', cleaned_row.get('จำนวน', 0))
-                    shares = float(str(shares_val).replace(',', '')) if shares_val not in [None, ''] else 0.0
-                except (ValueError, TypeError):
-                    shares = 0.0
-                    
-                try:
-                    # ดึงค่าต้นทุนเฉลี่ย (รองรับทั้งชื่อภาษาอังกฤษและไทย)
-                    avg_val = cleaned_row.get('avg_price', cleaned_row.get('ต้นทุนเฉลี่ย', 0.0))
-                    avg_price = float(str(avg_val).replace(',', '')) if avg_val not in [None, ''] else 0.0
-                except (ValueError, TypeError):
-                    avg_price = 0.0
-                    
-                # นำจำนวนหุ้นคูณต้นทุนเฉลี่ย แล้วบวกสะสมเข้าไป
-                total_stock_cost += (shares * avg_price)
-                
-        # 3. เงินสดคงเหลือที่แท้จริง = ยอดรวม Cash Flow - ต้นทุนหุ้นในพอร์ต
-        actual_cash_balance = total_cash_flow - total_stock_cost
-        
-        return float(actual_cash_balance)
-        
-    except Exception as e:
-        st.error(f"❌ เกิดข้อผิดพลาดในการคำนวณเงินสด: {e}")
-        return 0.0
+  """คำนวณเงินสดคงเหลือที่แท้จริง: (ยอดรวม Cash Flow ทั้งหมด) - (ผลรวม shares * avg_price ของทุกหุ้นในพอร์ต)"""
+  try:
+    client = get_gsheet_client()
+    spreadsheet_name = "MyStockData"
+
+    # 1. ดึงยอดรวมจากชีต cashflow ทั้งหมด
+    sheet_cash = client.open(spreadsheet_name).worksheet("cashflow")
+    records_cash = sheet_cash.get_all_records()
+
+    total_cash_flow = 0.0
+    if records_cash:
+      df_cash = pd.DataFrame(records_cash)
+      if "Amount" in df_cash.columns:
+        df_cash["Amount"] = pd.to_numeric(
+            df_cash["Amount"], errors="coerce"
+        ).fillna(0)
+        total_cash_flow = float(df_cash["Amount"].sum())
+
+    # 2. บังคับคำนวณต้นทุนหุ้นทั้งหมดจาก shares * avg_price โดยตรง
+    # (ตรวจสอบชื่อชีตพอร์ตใน Google Sheets ของคุณด้วยว่าเป็น PortfolioData หรือชื่อไทย)
+    sheet_portfolio = client.open(spreadsheet_name).worksheet("PortfolioData")
+    records_portfolio = sheet_portfolio.get_all_records()
+
+    total_stock_cost = 0.0
+    if records_portfolio:
+      for row in records_portfolio:
+        cleaned_row = {str(k).strip(): v for k, v in row.items()}
+
+        try:
+          shares_val = cleaned_row.get("shares", cleaned_row.get("จำนวน", 0))
+          shares = (
+              float(str(shares_val).replace(",", ""))
+              if shares_val not in [None, ""]
+              else 0.0
+          )
+        except (ValueError, TypeError):
+          shares = 0.0
+
+        try:
+          avg_val = cleaned_row.get(
+              "avg_price", cleaned_row.get("ต้นทุนเฉลี่ย", 0.0)
+          )
+          avg_price = (
+              float(str(avg_val).replace(",", ""))
+              if avg_val not in [None, ""]
+              else 0.0
+          )
+        except (ValueError, TypeError):
+          avg_price = 0.0
+
+        total_stock_cost += shares * avg_price
+
+    # 3. เงินสดคงเหลือที่แท้จริง = ยอดรวม Cash Flow - ต้นทุนหุ้นในพอร์ต
+    actual_cash_balance = total_cash_flow - total_stock_cost
+
+    return float(actual_cash_balance)
+
+  except Exception as e:
+    st.error(f"❌ เกิดข้อผิดพลาดในการคำนวณเงินสด: {e}")
+    return 0.0
         
 # --- กำหนดค่าเริ่มต้น Cash Balance จาก Google Sheets โดยตรง ---
 if "cash_balance" not in st.session_state:
