@@ -24,7 +24,6 @@ from google.oauth2.service_account import Credentials
 from plotly.subplots import make_subplots
 from PIL import Image
 from datetime import datetime, timedelta
-from your_module import get_gsheet_client
 import time
 from gspread.exceptions import APIError
 # =============================================================
