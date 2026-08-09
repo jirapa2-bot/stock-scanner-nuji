@@ -1538,7 +1538,7 @@ def main():
             
             ref_gold_bar, ref_gold_jewelry = get_thaigold_prices()
             
-            # 🔄 โหลดข้อมูลจาก Google Sheets ให้สอดคล้องกับ Header ใหม่
+            # 🔄 โหลดข้อมูลจาก Google Sheets ให้สอดคล้องกับ Header ใหม่และป้องกันค่า 0
             if 'gold_portfolio' not in st.session_state:
                 st.session_state['gold_portfolio'] = []
                 try:
@@ -1546,8 +1546,8 @@ def main():
                     if sheet_gold is not None:
                         records = sheet_gold.get_all_records()
                         for row in records:
-                            if "ประเภท" in row and str(row["ประเภท"]).strip() != "":
-                                g_type = str(row["ประเภท"])
+                            g_type = str(row.get("ประเภท", "")).strip()
+                            if g_type != "":
                                 val_weight = float(str(row.get("น้ำหนัก/มูลค่าซื้อ", 0)).replace(',', '')) if row.get("น้ำหนัก/มูลค่าซื้อ") else 0.0
                                 unit_str = str(row.get("หน่วย", ""))
                                 cost_avg = float(str(row.get("ราคาต้นทุนเฉลี่ย", 0)).replace(',', '')) if row.get("ราคาต้นทุนเฉลี่ย") else 0.0
@@ -1556,16 +1556,34 @@ def main():
                                 market_val = float(str(row.get("มูลค่าตลาด", 0)).replace(',', '')) if row.get("มูลค่าตลาด") else 0.0
                                 note_str = str(row.get("หมายเหตุ", ""))
         
-                                # คำนวณตลาดอัตโนมัติถ้ามาร์เก็ตแวลูยังเป็น 0 สำหรับทองแท่ง/ทองรูปพรรณ
-                                if market_val == 0.0 and val_weight > 0:
-                                    if g_type == "ทองคำแท่ง":
+                                # คำนวณค่าที่ขาดหายไปอัตโนมัติให้สอดคล้องกับประเภท
+                                if g_type == "ทองคำแท่ง":
+                                    if market_price == 0:
                                         market_price = ref_gold_bar
+                                    if market_val == 0 and val_weight > 0:
                                         market_val = (val_weight / 15.244) * ref_gold_bar
-                                    elif g_type == "ทองรูปพรรณ":
+                                    if cost_val == 0:
+                                        cost_val = market_val  # ถ้าไม่มีทุนเดิม ให้ใช้มูลค่าตลาดตั้งต้น
+                                    if cost_avg == 0:
+                                        cost_avg = ref_gold_bar
+                                        
+                                elif g_type == "ทองรูปพรรณ":
+                                    if market_price == 0:
                                         market_price = ref_gold_jewelry
+                                    if market_val == 0 and val_weight > 0:
                                         market_val = val_weight * ref_gold_jewelry
-                                    else:
-                                        market_val = val_weight
+                                    if cost_val == 0:
+                                        cost_val = market_val
+                                    if cost_avg == 0:
+                                        cost_avg = ref_gold_jewelry
+                                        
+                                else:  # เทรดทอง / กองทุนทอง
+                                    if cost_val == 0:
+                                        cost_val = val_weight
+                                    if market_val == 0:
+                                        market_val = cost_val
+                                    if market_price == 0:
+                                        market_price = market_val
         
                                 st.session_state['gold_portfolio'].append({
                                     "ประเภท": g_type,
