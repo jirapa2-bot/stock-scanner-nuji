@@ -4914,40 +4914,64 @@ def main():
                                 st.toast("เปิดสถานะเทรดเรียบร้อย! 🎉", icon="✅")
                                 st.rerun()
                                 
+            # 🛡️ ป้องกัน tfex_df และตัวแปรพื้นฐานกรณีข้อมูลว่างเปล่า
+            if 'tfex_df' not in locals() and 'tfex_df' not in globals():
+                tfex_df = pd.DataFrame()
+            elif not isinstance(tfex_df, pd.DataFrame):
+                tfex_df = pd.DataFrame(tfex_df if tfex_df is not None else [])
+
+            if tfex_df.empty:
+                # สร้างโครงสร้าง DataFrame เปล่าเผื่อไว้ป้องกันพัง
+                for col in ['Close_Price', 'Net_Profit', 'Series', 'Trade_ID', 'Date_Close', 'Status', 'Size', 'Open_Price']:
+                    if col not in tfex_df.columns:
+                        tfex_df[col] = pd.Series(dtype='object')
+
+            tfex_df['Close_Price_Cleaned'] = pd.to_numeric(tfex_df.get('Close_Price', pd.Series(dtype='float')), errors='coerce').fillna(0)
+
+            # ป้องกันตัวแปร net_capital และ cash_df
+            net_capital = net_capital if 'net_capital' in locals() and net_capital is not None else 100000.0
+            if 'cash_df' not in locals() or not isinstance(cash_df, pd.DataFrame):
+                cash_df = pd.DataFrame(columns=['Date', 'Type', 'Amount', 'Note'])
+
+            # --- 1. ส่วนปิดสถานะเทรด (sub_tfex_close) ---
             with sub_tfex_close:
                 st.subheader("🏁 ปิดสถานะเทรด")
                 
-                # ดึงข้อมูลจากฟังก์ชัน load_data สดๆ ใหม่ๆ
-                tfex_df = load_data("TFEX_History")
+                open_trades = tfex_df[tfex_df['Close_Price_Cleaned'] == 0] if 'Close_Price_Cleaned' in tfex_df.columns else pd.DataFrame()
                 
-                # กรองเฉพาะรายการที่ยังถืออยู่
-                tfex_df['Close_Price_Cleaned'] = pd.to_numeric(tfex_df['Close_Price'], errors='coerce').fillna(0)
-                open_trades = tfex_df[tfex_df['Close_Price_Cleaned'] == 0]
-                
-                if not open_trades.empty:
-                    # ให้เลือก Trade_ID
+                if not open_trades.empty and 'Trade_ID' in open_trades.columns:
                     selected_trade_id = st.selectbox("เลือก Trade ที่ต้องการปิด:", open_trades['Trade_ID'].tolist())
                     
-                    # แสดงรายละเอียดออเดอร์เดิมให้เห็นก่อนปิด
-                    trade_detail = open_trades[open_trades['Trade_ID'] == selected_trade_id].iloc[0]
-                    st.info(f"🔍 รายละเอียดออเดอร์เดิม: **{trade_detail['Status']}** จำนวน **{trade_detail['Size']}** สัญญา ที่ราคา **{trade_detail['Open_Price']}**")
-                    
-                    # ฟอร์มกรอกข้อมูลปิดสถานะ
-                    c_col1, c_col2 = st.columns(2)
-                    close_price = c_col1.number_input("ราคาปิด:", value=float(trade_detail['Open_Price']), step=0.1, format="%.2f")
-                    close_date = c_col2.date_input("วันที่ปิด:")
-                    
-                    if st.button("ยืนยันการปิดสถานะ", use_container_width=True, type="primary"):
-                        # บันทึกปิดสถานะพร้อม Loading Spinner และล้าง Cache ทันที
-                        with st.spinner("⏳ กำลังบันทึกการปิดสถานะและคำนวณผลลัพธ์..."):
-                            success = update_trade_close('1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU', selected_trade_id, close_price, str(close_date))
-                            if success:
-                                st.cache_data.clear()  # ล้าง Cache ข้อมูลในหน่วยความจำ
-                                st.toast("ปิดสถานะสำเร็จ และคำนวณกำไรเรียบร้อย! 🏁", icon="🏆")
-                                st.rerun()             # โหลดหน้าจอใหม่เพื่อให้ข้อมูลปัจจุบันที่สุดแสดงทันที
+                    trade_row = open_trades[open_trades['Trade_ID'] == selected_trade_id]
+                    if not trade_row.empty:
+                        trade_detail = trade_row.iloc[0]
+                        status_val = trade_detail.get('Status', '-')
+                        size_val = trade_detail.get('Size', 0)
+                        open_price_val = trade_detail.get('Open_Price', 0.0)
+                        
+                        st.info(f"🔍 รายละเอียดออเดอร์เดิม: **{status_val}** จำนวน **{size_val}** สัญญา ที่ราคา **{open_price_val}**")
+                        
+                        c_col1, c_col2 = st.columns(2)
+                        close_price = c_col1.number_input("ราคาปิด:", value=float(open_price_val) if pd.notnull(open_price_val) else 0.0, step=0.1, format="%.2f")
+                        close_date = c_col2.date_input("วันที่ปิด:")
+                        
+                        if st.button("ยืนยันการปิดสถานะ", use_container_width=True, type="primary"):
+                            with st.spinner("⏳ กำลังบันทึกการปิดสถานะและคำนวณผลลัพธ์..."):
+                                # เช็คฟังก์ชัน update_trade_close ว่ามีอยู่จริงไหม
+                                if 'update_trade_close' in globals():
+                                    success = update_trade_close('1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU', selected_trade_id, close_price, str(close_date))
+                                else:
+                                    success = False
+                                    st.error("ไม่พบฟังก์ชัน update_trade_close ในระบบ")
+                                    
+                                if success:
+                                    st.cache_data.clear() 
+                                    st.toast("ปิดสถานะสำเร็จ และคำนวณกำไรเรียบร้อย! 🏁", icon="🏆")
+                                    st.rerun()            
                 else:
                     st.info("ไม่มีรายการที่ถือครองอยู่ครับ")
                     
+            # --- 2. ส่วนบันทึกเติม/ถอนเงิน (sub_tfex_cash) ---
             with sub_tfex_cash:
                 st.subheader("💰 บันทึกเติม/ถอนเงิน")
                 
@@ -4967,133 +4991,135 @@ def main():
                             "Amount": amount,
                             "Note": note
                         }])
-                        if save_cash_to_gsheet(new_cash, "Cash_Flow"):
-                            st.success("บันทึกข้อมูลเงินเรียบร้อย!")
-                            st.rerun()
-        
+                        if 'save_cash_to_gsheet' in globals():
+                            if save_cash_to_gsheet(new_cash, "Cash_Flow"):
+                                st.success("บันทึกข้อมูลเงินเรียบร้อย!")
+                                st.rerun()
+                        else:
+                            st.error("ไม่พบฟังก์ชัน save_cash_to_gsheet ในระบบ")
+            
                 st.divider()
                 st.write("รายการล่าสุด:")
                 st.dataframe(cash_df, use_container_width=True)
             
+            # --- 3. ส่วนประวัติการเทรดและกราฟ (sub_tfex_history) ---
             with sub_tfex_history:
                 st.subheader("📜 ประวัติการเทรดและกำไรสะสม")
                 
-                if not tfex_df.empty and 'Net_Profit' in tfex_df.columns:
-                    # 1. จัดเตรียมข้อมูล
-                    closed_trades = tfex_df[tfex_df['Close_Price'] > 0].copy()
-                    closed_trades['Date_Close'] = pd.to_datetime(closed_trades['Date_Close'])
+                # เตรียม perf_df ให้ปลอดภัย ป้องกัน KeyError
+                perf_df = tfex_df[tfex_df['Close_Price_Cleaned'] > 0].copy() if not tfex_df.empty and 'Close_Price_Cleaned' in tfex_df.columns else pd.DataFrame()
+
+                if not perf_df.empty and 'Net_Profit' in perf_df.columns:
+                    perf_df['Net_Profit'] = pd.to_numeric(perf_df['Net_Profit'], errors='coerce').fillna(0)
                     
-                    # 3. ตารางแสดงราย Series (เปรียบเทียบว่า Series ไหนเทรดแล้วกำไรที่สุด)
-                    st.write("📊 สรุปผลงานราย Series:")
-                    series_perf = perf_df.groupby('Series').agg({
-                        'Net_Profit': 'sum',
-                        'Trade_ID': 'count'
-                    }).rename(columns={'Trade_ID': 'Trades', 'Net_Profit': 'Total PnL'})
+                    # ตารางสรุปผลงานราย Series
+                    if 'Series' in perf_df.columns and 'Trade_ID' in perf_df.columns:
+                        st.write("📊 สรุปผลงานราย Series:")
+                        series_perf = perf_df.groupby('Series', dropna=False).agg({
+                            'Net_Profit': 'sum',
+                            'Trade_ID': 'count'
+                        }).rename(columns={'Trade_ID': 'Trades', 'Net_Profit': 'Total PnL'})
+                        
+                        st.dataframe(series_perf.sort_values(by='Total PnL', ascending=False), use_container_width=True)
                     
-                    st.dataframe(series_perf.sort_values(by='Total PnL', ascending=False), use_container_width=True)
-    
                     # --- กราฟแสดงการเติบโตของพอร์ต TFEX ---
                     st.subheader("📈 กราฟการเติบโตของพอร์ต (Portfolio Growth)")
-    
-                    if not perf_df.empty:
-                        # 1. ทำตัวเลือกช่วงเวลา (Quick Filter) สำหรับกราฟ TFEX
-                        c_f1, c_f2 = st.columns([2, 2])
-                        with c_f1:
-                            tfex_view_range = st.selectbox(
-                                "⏳ เลือกช่วงเวลาแสดงผล (TFEX):",
-                                ["ทั้งหมด (All Time)", "3 เดือนล่าสุด", "6 เดือนล่าสุด", "1 ปีล่าสุด (YTD / 12M)"],
-                                key="tfex_line_view_range"
-                            )
-                        
-                        # แปลงคอลัมน์วันที่ให้เป็น datetime
+                    
+                    if 'Date_Close' in perf_df.columns:
                         perf_df['Date_Close'] = pd.to_datetime(perf_df['Date_Close'], errors='coerce')
                         df_tfex_filtered = perf_df.dropna(subset=['Date_Close']).sort_values('Date_Close').copy()
                         
-                        max_date = df_tfex_filtered['Date_Close'].max()
-                        initial_capital_base = net_capital  # เงินต้นเริ่มต้น
-                        
-                        # กรองข้อมูลตามช่วงเวลาที่เลือก และคำนวณกำไรย้อนหลังที่ถูกตัดออกไปรวมกับฐานเงินต้น
-                        if tfex_view_range == "3 เดือนล่าสุด":
-                            start_date = max_date - pd.DateOffset(months=3)
-                            past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
-                            initial_capital_base += past_slice['Net_Profit'].sum()
-                            df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
-                        elif tfex_view_range == "6 เดือนล่าสุด":
-                            start_date = max_date - pd.DateOffset(months=6)
-                            past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
-                            initial_capital_base += past_slice['Net_Profit'].sum()
-                            df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
-                        elif tfex_view_range == "1 ปีล่าสุด (YTD / 12M)":
-                            start_date = max_date - pd.DateOffset(years=1)
-                            past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
-                            initial_capital_base += past_slice['Net_Profit'].sum()
-                            df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
-                    
                         if not df_tfex_filtered.empty:
-                            # 2. Dynamic Aggregation: ถ้าระยะเวลานานกว่า 1 ปี ให้ยุบกลุ่มเป็น "รายเดือน" เพื่อความสะอาดของกราฟ
-                            date_span_days = (df_tfex_filtered['Date_Close'].max() - df_tfex_filtered['Date_Close'].min()).days
+                            c_f1, c_f2 = st.columns([2, 2])
+                            with c_f1:
+                                tfex_view_range = st.selectbox(
+                                    "⏳ เลือกช่วงเวลาแสดงผล (TFEX):",
+                                    ["ทั้งหมด (All Time)", "3 เดือนล่าสุด", "6 เดือนล่าสุด", "1 ปีล่าสุด (YTD / 12M)"],
+                                    key="tfex_line_view_range"
+                                )
                             
-                            if date_span_days > 365 and tfex_view_range == "ทั้งหมด (All Time)":
-                                df_tfex_filtered['Period_Key'] = df_tfex_filtered['Date_Close'].dt.to_period('M')
-                                df_tfex_filtered['Time_Label'] = df_tfex_filtered['Period_Key'].apply(lambda r: r.strftime('%b %Y'))
-                                df_tfex_filtered['Sort_Time'] = df_tfex_filtered['Period_Key'].dt.start_time
-                                agg_freq_text = "รายเดือน (มุมมองระยะยาว)"
+                            max_date = df_tfex_filtered['Date_Close'].max()
+                            initial_capital_base = net_capital  
+                            
+                            if tfex_view_range == "3 เดือนล่าสุด":
+                                start_date = max_date - pd.DateOffset(months=3)
+                                past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
+                                initial_capital_base += past_slice['Net_Profit'].sum()
+                                df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
+                            elif tfex_view_range == "6 เดือนล่าสุด":
+                                start_date = max_date - pd.DateOffset(months=6)
+                                past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
+                                initial_capital_base += past_slice['Net_Profit'].sum()
+                                df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
+                            elif tfex_view_range == "1 ปีล่าสุด (YTD / 12M)":
+                                start_date = max_date - pd.DateOffset(years=1)
+                                past_slice = df_tfex_filtered[df_tfex_filtered['Date_Close'] < start_date]
+                                initial_capital_base += past_slice['Net_Profit'].sum()
+                                df_tfex_filtered = df_tfex_filtered[df_tfex_filtered['Date_Close'] >= start_date]
+                    
+                            if not df_tfex_filtered.empty:
+                                date_span_days = (df_tfex_filtered['Date_Close'].max() - df_tfex_filtered['Date_Close'].min()).days
+                                
+                                if date_span_days > 365 and tfex_view_range == "ทั้งหมด (All Time)":
+                                    df_tfex_filtered['Period_Key'] = df_tfex_filtered['Date_Close'].dt.to_period('M')
+                                    df_tfex_filtered['Time_Label'] = df_tfex_filtered['Period_Key'].apply(lambda r: r.strftime('%b %Y'))
+                                    df_tfex_filtered['Sort_Time'] = df_tfex_filtered['Period_Key'].dt.start_time
+                                    agg_freq_text = "รายเดือน (มุมมองระยะยาว)"
+                                else:
+                                    df_tfex_filtered['Period_Key'] = df_tfex_filtered['Date_Close'].dt.to_period('W-MON')
+                                    df_tfex_filtered['Time_Label'] = df_tfex_filtered['Period_Key'].apply(lambda r: f"W{r.week} {r.start_time.strftime('%b %Y')}")
+                                    df_tfex_filtered['Sort_Time'] = df_tfex_filtered['Period_Key'].dt.start_time
+                                    agg_freq_text = "รายสัปดาห์ (เจาะลึก)"
+                    
+                                with c_f2:
+                                    st.markdown(f"<p style='padding-top:28px; color:gray; font-size:13px;'>ℹ️ ความละเอียด: <b>{agg_freq_text}</b></p>", unsafe_allow_html=True)
+                    
+                                growth_df = df_tfex_filtered.groupby(['Sort_Time', 'Time_Label'], as_index=False).agg({
+                                    'Net_Profit': 'sum'
+                                }).sort_values('Sort_Time')
+                                
+                                growth_df['Cumulative_Profit'] = growth_df['Net_Profit'].cumsum()
+                                growth_df['Portfolio_Value'] = initial_capital_base + growth_df['Cumulative_Profit']
+                                
+                                start_date_point = growth_df['Sort_Time'].min() - pd.Timedelta(days=1)
+                                start_row = pd.DataFrame({
+                                    'Sort_Time': [start_date_point], 
+                                    'Time_Label': ['จุดเริ่มต้น'], 
+                                    'Portfolio_Value': [initial_capital_base]
+                                })
+                                growth_df = pd.concat([start_row, growth_df[['Sort_Time', 'Time_Label', 'Portfolio_Value']]], ignore_index=True)
+                                growth_df = growth_df.sort_values('Sort_Time').reset_index(drop=True)
+                    
+                                fig_growth = px.line(
+                                    growth_df, 
+                                    x='Time_Label', 
+                                    y='Portfolio_Value',
+                                    markers=True,
+                                    line_shape='spline'
+                                )
+                                
+                                y_max = growth_df['Portfolio_Value'].max()
+                                y_min = growth_df['Portfolio_Value'].min()
+                                y_upper_margin = (y_max - y_min) * 0.15 if y_max != y_min else y_max * 0.15
+                    
+                                fig_growth.update_traces(line=dict(color='#26A69A', width=3))
+                                fig_growth.update_layout(
+                                    xaxis_title="ช่วงเวลา",
+                                    yaxis_title="มูลค่าพอร์ต (บาท)",
+                                    yaxis=dict(range=[y_min * 0.98, y_max + y_upper_margin]),
+                                    margin=dict(l=20, r=20, t=30, b=20),
+                                    hovermode="x unified"
+                                )
+                                
+                                st.plotly_chart(fig_growth, use_container_width=True)
                             else:
-                                df_tfex_filtered['Period_Key'] = df_tfex_filtered['Date_Close'].dt.to_period('W-MON')
-                                df_tfex_filtered['Time_Label'] = df_tfex_filtered['Period_Key'].apply(lambda r: f"W{r.week} {r.start_time.strftime('%b %Y')}")
-                                df_tfex_filtered['Sort_Time'] = df_tfex_filtered['Period_Key'].dt.start_time
-                                agg_freq_text = "รายสัปดาห์ (เจาะลึก)"
-                    
-                            with c_f2:
-                                st.markdown(f"<p style='padding-top:28px; color:gray; font-size:13px;'>ℹ️ ความละเอียด: <b>{agg_freq_text}</b></p>", unsafe_allow_html=True)
-                    
-                            # รวมกำไรตามช่วงเวลาที่จัดกลุ่ม
-                            growth_df = df_tfex_filtered.groupby(['Sort_Time', 'Time_Label'], as_index=False).agg({
-                                'Net_Profit': 'sum'
-                            }).sort_values('Sort_Time')
-                            
-                            # คำนวณมูลค่าพอร์ตสะสม
-                            growth_df['Cumulative_Profit'] = growth_df['Net_Profit'].cumsum()
-                            growth_df['Portfolio_Value'] = initial_capital_base + growth_df['Cumulative_Profit']
-                            
-                            # เพิ่มจุดเริ่มต้น (Start Point) ให้กราฟเริ่มสวยงามที่ฐานเงินต้น
-                            start_date_point = growth_df['Sort_Time'].min() - pd.Timedelta(days=1)
-                            start_row = pd.DataFrame({
-                                'Sort_Time': [start_date_point], 
-                                'Time_Label': ['จุดเริ่มต้น'], 
-                                'Portfolio_Value': [initial_capital_base]
-                            })
-                            growth_df = pd.concat([start_row, growth_df[['Sort_Time', 'Time_Label', 'Portfolio_Value']]], ignore_index=True)
-                            growth_df = growth_df.sort_values('Sort_Time').reset_index(drop=True)
-                    
-                            # 3. สร้างกราฟเส้นด้วย Plotly
-                            fig_growth = px.line(
-                                growth_df, 
-                                x='Time_Label', 
-                                y='Portfolio_Value',
-                                markers=True,
-                                line_shape='spline'
-                            )
-                            
-                            # ปรับแต่งหน้าตาให้ดูมืออาชีพ พร้อมเผื่อสเกลแกน Y ด้านบนไม่ให้เส้นชนขอบ
-                            y_max = growth_df['Portfolio_Value'].max()
-                            y_min = growth_df['Portfolio_Value'].min()
-                            y_upper_margin = (y_max - y_min) * 0.15 if y_max != y_min else y_max * 0.15
-                    
-                            fig_growth.update_traces(line=dict(color='#26A69A', width=3))
-                            fig_growth.update_layout(
-                                xaxis_title="ช่วงเวลา",
-                                yaxis_title="มูลค่าพอร์ต (บาท)",
-                                yaxis=dict(range=[y_min * 0.98, y_max + y_upper_margin]),
-                                margin=dict(l=20, r=20, t=30, b=20),
-                                hovermode="x unified"
-                            )
-                            
-                            st.plotly_chart(fig_growth, use_container_width=True)
+                                st.info("ไม่มีข้อมูลในช่วงเวลาที่เลือก")
                         else:
-                            st.info("ไม่มีข้อมูลในช่วงเวลาที่เลือก")
+                            st.info("ยังไม่มีข้อมูลวันที่ปิดสถานะที่ถูกต้อง")
                     else:
-                        st.info("ยังไม่มีข้อมูลประวัติการเทรด TFEX ที่ปิดสถานะ")
+                        st.info("ไม่พบคอลัมน์วันที่ปิดสถานะ (Date_Close)")
+                else:
+                    st.info("ยังไม่มีข้อมูลประวัติการเทรด TFEX ที่ปิดสถานะ")
     
                     # --- สรุปผลรายเดือนแบบ Combo Chart & Table ---
                     st.divider()
