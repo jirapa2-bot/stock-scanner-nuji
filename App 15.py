@@ -26,7 +26,6 @@ from PIL import Image
 from datetime import datetime, timedelta
 import time
 from gspread.exceptions import APIError
-
 import gspread
 import pandas as pd
 import streamlit as st
