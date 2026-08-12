@@ -1518,7 +1518,7 @@ def main():
                                 market_price = float(str(row.get("ราคาตลาดปัจจุบัน", 0)).replace(',', '')) if row.get("ราคาตลาดปัจจุบัน") else 0.0
                                 market_val = float(str(row.get("มูลค่าตลาด", 0)).replace(',', '')) if row.get("มูลค่าตลาด") else 0.0
                                 note_str = str(row.get("หมายเหตุ", ""))
-        
+                
                                 # คำนวณค่าที่ขาดหายไปอัตโนมัติให้สอดคล้องกับประเภท
                                 if g_type == "ทองคำแท่ง":
                                     if market_price == 0:
@@ -1547,7 +1547,7 @@ def main():
                                         market_val = cost_val
                                     if market_price == 0:
                                         market_price = market_val
-        
+                
                                 st.session_state['gold_portfolio'].append({
                                     "ประเภท": g_type,
                                     "น้ำหนัก/มูลค่าซื้อ": val_weight,
@@ -1595,19 +1595,19 @@ def main():
                 if submitted:
                     if 'gold_portfolio' not in st.session_state:
                         st.session_state['gold_portfolio'] = []
-                    
+                
                     if gold_type != "เทรดทอง / กองทุนทอง" and weight_input > 0:
                         if gold_type == "ทองคำแท่ง":
                             unit_name = "กรัม"
                             p_unit = ref_gold_bar
                             init_m_val = (weight_input / 15.244) * ref_gold_bar
-                            cost_val = init_m_val # ถ้ายึดตามราคาตลาดอ้างอิงตอนซื้อ
+                            cost_val = init_m_val 
                         else:
                             unit_name = "บาททองคำ"
                             p_unit = ref_gold_jewelry
                             init_m_val = weight_input * ref_gold_jewelry
                             cost_val = init_m_val
-        
+                
                         found = False
                         for item in st.session_state['gold_portfolio']:
                             if item["ประเภท"] == gold_type and item["หมายเหตุ"] == note_input:
@@ -1620,7 +1620,7 @@ def main():
                                     item["มูลค่าตลาด"] = item["มูลค่าตั้งต้น"]
                                 found = True
                                 break
-                        
+                
                         if not found:
                             st.session_state['gold_portfolio'].append({
                                 "ประเภท": gold_type,
@@ -1632,7 +1632,7 @@ def main():
                                 "มูลค่าตลาด": init_m_val,
                                 "หมายเหตุ": note_input
                             })
-                        
+                
                         # บันทึกลง Google Sheets ตาม Header ที่กำหนด
                         try:
                             sheet_gold = get_worksheet_safely(client, 'MyStockData', 'Gold_Portfolio')
@@ -1671,7 +1671,7 @@ def main():
                                         item["มูลค่าตลาด"] = market_val_input
                                     found = True
                                     break
-                            
+                
                             if not found:
                                 m_final = market_val_input if market_val_input > 0 else weight_input
                                 st.session_state['gold_portfolio'].append({
@@ -1684,36 +1684,36 @@ def main():
                                     "มูลค่าตลาด": m_final,
                                     "หมายเหตุ": note_input if note_input else "เทรดทองทั่วไป"
                                 })
-                            
-                            try:
-                                sheet_gold = get_worksheet_safely(client, 'MyStockData', 'Gold_Portfolio')
-                                if sheet_gold is not None:
-                                    sheet_gold.clear()
-                                    sheet_gold.append_row(["ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "หมายเหตุ", "วันที่บันทึก"])
-                                    current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                                    rows_to_append = []
-                                    for item in st.session_state['gold_portfolio']:
-                                        rows_to_append.append([
-                                            item["ประเภท"],
-                                            item["น้ำหนัก/มูลค่าซื้อ"],
-                                            item["หน่วย"],
-                                            item["ราคาต้นทุนเฉลี่ย"],
-                                            item["มูลค่าตั้งต้น"],
-                                            item["ราคาตลาดปัจจุบัน"],
-                                            item["มูลค่าตลาด"],
-                                            item["หมายเหตุ"],
-                                            current_date
-                                        ])
-                                    sheet_gold.append_rows(rows_to_append)
-                            except Exception as e:
-                                st.error(f"⚠️ บันทึกลง Google Sheets ไม่สำเร็จ: {e}")
-                            
-                            st.success(f"บันทึกข้อมูลการเทรดทอง/กองทุนทองสำเร็จ!")
-                            st.rerun()
+                
+                                try:
+                                    sheet_gold = get_worksheet_safely(client, 'MyStockData', 'Gold_Portfolio')
+                                    if sheet_gold is not None:
+                                        sheet_gold.clear()
+                                        sheet_gold.append_row(["ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "หมายเหตุ", "วันที่บันทึก"])
+                                        current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                        rows_to_append = []
+                                        for item in st.session_state['gold_portfolio']:
+                                            rows_to_append.append([
+                                                item["ประเภท"],
+                                                item["น้ำหนัก/มูลค่าซื้อ"],
+                                                item["หน่วย"],
+                                                item["ราคาต้นทุนเฉลี่ย"],
+                                                item["มูลค่าตั้งต้น"],
+                                                item["ราคาตลาดปัจจุบัน"],
+                                                item["มูลค่าตลาด"],
+                                                item["หมายเหตุ"],
+                                                current_date
+                                            ])
+                                        sheet_gold.append_rows(rows_to_append)
+                                except Exception as e:
+                                    st.error(f"⚠️ บันทึกลง Google Sheets ไม่สำเร็จ: {e}")
+                                
+                                st.success(f"บันทึกข้อมูลการเทรดทอง/กองทุนทองสำเร็จ!")
+                                st.rerun()
+                            else:
+                                st.error("กรุณากรอกมูลค่าเงินทุน หรือมูลค่าตลาดอย่างน้อย 1 ช่อง")
                         else:
-                            st.error("กรุณากรอกมูลค่าเงินทุน หรือมูลค่าตลาดอย่างน้อย 1 ช่อง")
-                    else:
-                        st.error("กรุณากรอกข้อมูลให้มากกว่า 0")
+                            st.error("กรุณากรอกข้อมูลให้มากกว่า 0")
             
             if 'gold_portfolio' in st.session_state and len(st.session_state['gold_portfolio']) > 0:
                 st.markdown("#### 📊 สรุปมูลค่าพอร์ตการลงทุนทองคำทั้งหมด")
@@ -1733,7 +1733,7 @@ def main():
                     
                     if g_type == "ทองคำแท่ง":
                         market_val = (val_or_weight / 15.244) * ref_gold_bar
-                        cost_val = market_val # หรือใช้ค่าตั้งต้นเดิม
+                        cost_val = market_val 
                     elif g_type == "ทองรูปพรรณ":
                         market_val = val_or_weight * ref_gold_jewelry
                         cost_val = market_val
@@ -1754,6 +1754,56 @@ def main():
                 df_gold["กำไร/ขาดทุน (บาท)"] = profit_losses
                 df_gold["% กำไร/ขาดทุน"] = profit_loss_pcts
                 
+                # เพิ่มคอลัมน์ Checkbox สำหรับเลือกรายการที่จะลบ
+                st.markdown("👉 **เลือกรายการที่ต้องการลบ (ติ๊กเครื่องหมายถูกหน้าแถวที่ต้องการ):**")
+                
+                selected_indices = []
+                for i, row in df_gold.iterrows():
+                    col_chk, col_info = st.columns([0.08, 0.92])
+                    with col_chk:
+                        is_checked = st.checkbox("เลือก", key=f"chk_gold_{i}", label_visibility="collapsed")
+                        if is_checked:
+                            selected_indices.append(i)
+                    with col_info:
+                        st.write(f"**[{row['ประเภท']}]** หมายเหตุ: {row['หมายเหตุ'] or '-'} | มูลค่าตลาด: {row['มูลค่าตลาด']:,.2f} ฿ (กำไร/ขาดทุน: {row['กำไร/ขาดทุน (บาท)']:,.2f} ฿)")
+        
+                # ปุ่มดำเนินการลบรายการที่เลือก
+                if selected_indices:
+                    if st.button("🗑️ ลบรายการที่เลือก", type="primary"):
+                        # กรองเอาเฉพาะรายการที่ไม่ถูกเลือกเก็บไว้
+                        st.session_state['gold_portfolio'] = [
+                            item for idx, item in enumerate(st.session_state['gold_portfolio']) if idx not in selected_indices
+                        ]
+                        
+                        # อัปเดตข้อมูลล่าสุดลง Google Sheets ทันที
+                        try:
+                            sheet_gold = get_worksheet_safely(client, 'MyStockData', 'Gold_Portfolio')
+                            if sheet_gold is not None:
+                                sheet_gold.clear()
+                                sheet_gold.append_row(["ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "หมายเหตุ", "วันที่บันทึก"])
+                                current_date = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                                rows_to_append = []
+                                for item in st.session_state['gold_portfolio']:
+                                    rows_to_append.append([
+                                        item["ประเภท"],
+                                        item["น้ำหนัก/มูลค่าซื้อ"],
+                                        item["หน่วย"],
+                                        item["ราคาต้นทุนเฉลี่ย"],
+                                        item["มูลค่าตั้งต้น"],
+                                        item["ราคาตลาดปัจจุบัน"],
+                                        item["มูลค่าตลาด"],
+                                        item["หมายเหตุ"],
+                                        current_date
+                                    ])
+                                if rows_to_append:
+                                    sheet_gold.append_rows(rows_to_append)
+                        except Exception as e:
+                            st.error(f"⚠️ อัปเดตข้อมูล Google Sheets ไม่สำเร็จ: {e}")
+                        
+                        st.success("ลบรายการที่เลือกเรียบร้อยแล้ว!")
+                        st.rerun()
+        
+                st.markdown("---")
                 display_columns = ["ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "กำไร/ขาดทุน (บาท)", "% กำไร/ขาดทุน", "หมายเหตุ"]
                 df_display = df_gold[[col for col in display_columns if col in df_gold.columns]]
                 
