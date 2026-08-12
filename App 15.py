@@ -6011,16 +6011,21 @@ def main():
                         else:
                             st.warning("กรุณากรอกยอดเงินให้มากกว่า 0")
 
-            with st.expander("📤 เพิ่ม/อัปเดตข้อมูลประกันบำนาญ", expanded=False):
+            with st.expander("📤 เพิ่ม/อัปเดตข้อมูลประกันบำนาญตามอายุ", expanded=False):
                 with st.form("pension_upload_form"):
                     col_p1, col_p2 = st.columns(2)
                     with col_p1:
-                        pension_date = st.date_input("วันที่บันทึกประกันบำนาญ", value=date.today(), key="pension_date_input")
+                        pension_age = st.number_input(
+                            "อายุที่เริ่มรับเงินบำนาญ (ปี)", 
+                            min_value=55, max_value=100, value=55, step=1, 
+                            key="pension_age_input",
+                            help="ประกันบำนาญมักเริ่มถอน/รับเงินได้ตั้งแต่ช่วงอายุ 55 ปีขึ้นไป"
+                        )
                     with col_p2:
                         pension_value = st.number_input(
-                            "ยอดสะสมประกันบำนาญ (บาท)", 
+                            "ยอดเงินบำนาญที่จะได้รับ (บาท)", 
                             min_value=0.0, format="%.2f", value=0.0, key="pension_value_input",
-                            help="กรอกยอดเงินสะสมประกันบำนาญ ณ วันที่บันทึก"
+                            help="กรอกยอดเงินตามตารางกรมธรรม์ ณ อายุที่เลือก"
                         )
                     
                     submitted_pension = st.form_submit_button("💾 บันทึก/อัปเดตข้อมูลประกันบำนาญ")
@@ -6028,24 +6033,23 @@ def main():
                     if submitted_pension:
                         if pension_value >= 0:
                             try:
-                                # เรียกใช้ฟังก์ชันที่ประกาศไว้ด้านบน
                                 sheet_pension = get_pension_sheet() 
                                 
-                                date_str = pension_date.strftime("%Y-%m-%d")
-                                year_ce = pension_date.year
+                                # แปลงอายุเป็น string เพื่อใช้ตรวจสอบในคอลัมน์ A (สมมติคอลัมน์ A เก็บอายุ)
+                                age_str = str(int(pension_age))
                                 
-                                # ดึงข้อมูลวันที่ในคอลัมน์ A เพื่อเช็คว่ามีวันนี้หรือยัง
-                                date_column = sheet_pension.col_values(1)
+                                # ดึงข้อมูลในคอลัมน์ A ทั้งหมดมาเช็คว่ามีอายุนี้หรือยัง
+                                age_column = [str(cell) for cell in sheet_pension.col_values(1)]
                                 
-                                if date_str in date_column:
-                                    row_num = date_column.index(date_str) + 1
-                                    # อัปเดตข้อมูลในบรรทัดเดิม
-                                    sheet_pension.update(f"A{row_num}:C{row_num}", [[date_str, year_ce, pension_value]])
-                                    st.success(f"✅ อัปเดตข้อมูลประกันบำนาญของวันที่ **{date_str}** เรียบร้อยแล้ว!")
+                                if age_str in age_column:
+                                    row_num = age_column.index(age_str) + 1
+                                    # อัปเดตข้อมูลในบรรทัดเดิม (คอลัมน์ A คือ อายุ, คอลัมน์ B คือ ยอดเงิน)
+                                    sheet_pension.update(f"A{row_num}:B{row_num}", [[age_str, pension_value]])
+                                    st.success(f"✅ อัปเดตข้อมูลประกันบำนาญสำหรับ **อายุ {age_str} ปี** เรียบร้อยแล้ว!")
                                 else:
                                     # เพิ่มบรรทัดใหม่
-                                    sheet_pension.append_row([date_str, year_ce, pension_value])
-                                    st.success(f"✅ บันทึกข้อมูลใหม่ประกันบำนาญของวันที่ **{date_str}** เรียบร้อยแล้ว!")
+                                    sheet_pension.append_row([age_str, pension_value])
+                                    st.success(f"✅ บันทึกข้อมูลใหม่ประกันบำนาญสำหรับ **อายุ {age_str} ปี** เรียบร้อยแล้ว!")
                                 
                                 st.rerun()
                             except Exception as e:
