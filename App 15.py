@@ -5567,7 +5567,7 @@ def main():
                 st.markdown("### อัปเดตราคาตลาด / ขายกองทุน")
                 try:
                     client = get_gsheet_client()
-                    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
                     sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
                     fund_df = pd.DataFrame(sheet.get_all_records())
                     
@@ -5614,7 +5614,7 @@ def main():
                 st.markdown("### สรุปมูลค่าพอร์ตลงทุน")
                 try:
                     client = get_gsheet_client()
-                    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
                     sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
                     summary_df = pd.DataFrame(sheet.get_all_records())
                     
