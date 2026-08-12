@@ -5563,51 +5563,41 @@ def main():
                                 st.error(f"เกิดข้อผิดพลาด (โควตา Google Sheets อาจเต็มชั่วคราว): {e}")
             
             # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
+            # ส่วนของหน้าอัปเดตราคา
             with tab_update:
-                st.markdown("### อัปเดตราคาตลาด / ขายกองทุน")
+                st.markdown("### อัปเดตราคาปัจจุบันของกองทุน")
+                
+                # 1. ดึงข้อมูลกองทุนทั้งหมดมาทำ Dropdown
                 try:
                     client = get_gsheet_client()
-                    spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
-                    sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
-                    fund_df = pd.DataFrame(sheet.get_all_records())
+                    sheet = client.open_by_key('1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU').worksheet('Fund_History')
                     
-                    if not fund_df.empty and 'Status' in fund_df.columns:
-                        holding_df = fund_df[fund_df['Status'] == 'Holding']
+                    # ใช้ get_all_records() เพื่อให้ได้ Dictionary ที่อ่านง่าย
+                    all_data = sheet.get_all_records()
+                    
+                    if all_data:
+                        # ดึงเฉพาะชื่อกองทุนที่ไม่ซ้ำกัน (ใช้ set เพื่อลบค่าซ้ำ)
+                        fund_list = sorted(list(set(row['Fund_Name'] for row in all_data if row['Fund_Name'])))
                         
-                        if not holding_df.empty:
-                            selected_id = st.selectbox("เลือกกองทุนที่ต้องการจัดการ:", holding_df['Fund_ID'].tolist(), format_func=lambda x: f"ID: {x} - {holding_df[holding_df['Fund_ID'] == x]['Fund_Name'].values[0]}")
-                            
-                            selected_row = holding_df[holding_df['Fund_ID'] == selected_id].iloc[0]
-                            st.info(f"📌 กองทุน: **{selected_row['Fund_Name']}** | ต้นทุนเดิม: **{selected_row['Cost_Price']}** | จำนวนหน่วย: **{selected_row['Units']}**")
-                            
-                            up_col1, up_col2 = st.columns(2)
-                            new_current_price = up_col1.number_input("อัปเดราคาปัจจุบันต่อหน่วย:", value=float(selected_row['Cost_Price']), step=0.01, format="%.4f")
-                            action_type = up_col2.selectbox("การจัดการ:", ["อัปเดตราคาปัจจุบัน", "ขายออก (ปิดสถานะ)"])
-                            
-                            if action_type == "ขายออก (ปิดสถานะ)":
-                                sell_date = st.date_input("วันที่ขาย:", datetime.date.today())
-                            
-                            if st.button("ยืนยันการทำรายการ", use_container_width=True, type="primary"):
-                                row_index = int(selected_id) + 2 # คำนวณแถวใน Google Sheets (Header อยู่แถว 1)
-                                if action_type == "อัปเดตราคาปัจจุบัน":
-                                    # อัปเดตแค่ Current_Price (Col F คือ Column ที่ 6)
-                                    sheet.update_cell(row_index, 6, new_current_price)
-                                    st.success("อัปเดตราคาปัจจุบันสำเร็จ!")
-                                else:
-                                    # อัปเดต วันที่ขาย, ราคาปัจจุบัน, และเปลี่ยน Status เป็น Sold
-                                    sheet.update_cell(row_index, 4, str(sell_date)) # Date_Sell
-                                    sheet.update_cell(row_index, 6, new_current_price) # Current_Price
-                                    sheet.update_cell(row_index, 8, "Sold") # Status
-                                    st.success("บันทึกการขายกองทุนสำเร็จ!")
-                                
-                                st.cache_data.clear()
-                                st.rerun()
-                        else:
-                            st.info("ไม่มีกองทุนที่ถือครองอยู่ขณะนี้")
+                        selected_fund = st.selectbox("เลือกกองทุนที่ต้องการอัปเดต:", fund_list)
+                        new_price = st.number_input("ราคาปัจจุบันใหม่:", min_value=0.0, step=0.01, format="%.4f")
+                        
+                        if st.button("บันทึกราคาอัปเดต (ในบรรทัดเดิม)"):
+                            # 2. ค้นหาแถวที่กองทุนนี้อยู่
+                            # ต้องหาเลขแถวจาก all_data (ที่ get มา) เพื่อระบุตำแหน่งใน Google Sheets
+                            for idx, row in enumerate(all_data):
+                                if row['Fund_Name'] == selected_fund:
+                                    row_index = idx + 2 # บวก 2 เพราะแถว 1 คือ Header และ index เริ่มจาก 0
+                                    
+                                    # 3. อัปเดตเฉพาะคอลัมน์ Current_Price (คอลัมน์ F คือคอลัมน์ที่ 6)
+                                    sheet.update_cell(row_index, 6, new_price)
+                                    st.success(f"อัปเดต {selected_fund} เป็นราคา {new_price} สำเร็จ!")
+                                    st.rerun()
                     else:
-                        st.info("ยังไม่มีข้อมูลในระบบกองทุน")
+                        st.info("ยังไม่มีข้อมูลกองทุนในระบบ")
+                        
                 except Exception as e:
-                    st.warning(f"ยังไม่พบชีต Fund_History หรือเกิดข้อผิดพลาด: {e}")
+                    st.error(f"เกิดข้อผิดพลาดในการโหลดข้อมูล: {e}")
             
             # 3. Tab ภาพรวมพอร์ต (แสดงมูลค่าต้นทุน, มูลค่าปัจจุบัน)
             with tab_summary:
