@@ -3513,7 +3513,6 @@ def main():
                             # 🌟 เพิ่มเติมส่วนการเลือก "ขายรายไม้" หากเป็นสถานะ Closed และมีหุ้นนี้อยู่ใน Journal (ที่ยัง Open อยู่)
                             selected_lot_info = None
                             if p_status == "Closed (ขายแล้ว)" and select_ticker != "  ":
-                                # ค้นหาประวัติการซื้อหุ้นตัวนี้ที่สถานะยัง Open อยู่จาก journal_data
                                 open_lots = [
                                     entry for entry in st.session_state.get('journal_data', [])
                                     if entry.get('หุ้น') == select_ticker and ("ซื้อ" in entry.get('ประเภท', '') or entry.get('สถานะ') == "Open (กำลังถือ)")
@@ -3524,16 +3523,27 @@ def main():
                                     sell_mode = st.radio("รูปแบบการขาย:", ["ขายทั้งหมดทุกไม้รวมกัน", "ระบุเลือกขายเฉพาะไม้ (Lot)"], key="journal_sell_mode")
                                     
                                     if sell_mode == "ระบุเลือกขายเฉพาะไม้ (Lot)":
-                                        # สร้าง Label ให้ผู้ใช้เลือกดูว่าแต่ละไม้ซื้อวันที่เท่าไหร่ จำนวนเท่าไหร่ ราคาเท่าไหร่
-                                        lot_options = {
-                                            f"ซื้อวันที่: {lot.get('วันที่ซื้อ', lot.get('วันที่'))} | จำนวน: {lot.get('จำนวนหุ้นที่ซื้อ')} หุ้น | ต้นทุน: {lot.get('ราคาหุ้นที่ซื้อ')} ฿": lot
-                                            for lot in open_lots
-                                        }
+                                        lot_options = {}
+                                        for lot in open_lots:
+                                            buy_date_raw = str(lot.get('วันที่ซื้อ', lot.get('วันที่', '')))
+                                            # ดึงเฉพาะวันที่ (ตัดเวลา 00:00:00 ออกถ้ามี)
+                                            buy_date_clean = buy_date_raw.split()[0] if buy_date_raw else ""
+                                            
+                                            # ดึงราคาต้นทุนจาก Key ที่ถูกต้อง
+                                            lot_price = lot.get('ราคาหุ้นที่ซื้อ (บาท/หุ้น)', lot.get('ราคาหุ้นที่ซื้อ', lot.get('ต้นทุน (บาท)', 0)))
+                                            
+                                            label = f"ซื้อวันที่: {buy_date_clean} | จำนวน: {lot.get('จำนวนหุ้นที่ซื้อ', 0)} หุ้น | ราคา: {lot_price} ฿"
+                                            lot_options[label] = lot
+                                            
                                         chosen_lot_label = st.selectbox("เลือกไม้ที่ต้องการขาย:", list(lot_options.keys()), key="journal_chosen_lot")
                                         selected_lot_info = lot_options[chosen_lot_label]
                                         
-                                        # ล็อกวันที่ซื้อตามไม้นั้นๆ อัตโนมัติ
-                                        p_buy_date = datetime.strptime(selected_lot_info.get('วันที่ซื้อ', selected_lot_info.get('วันที่')), "%Y-%m-%d").date()
+                                        # แปลงวันที่แบบปลอดภัย รองรับทั้งมีและไม่มีเวลา
+                                        raw_date_str = str(selected_lot_info.get('วันที่ซื้อ', selected_lot_info.get('วันที่', ''))).split()[0]
+                                        try:
+                                            p_buy_date = datetime.strptime(raw_date_str, "%Y-%m-%d").date()
+                                        except:
+                                            p_buy_date = datetime.now().date()
                                     else:
                                         p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
                                     st.markdown("---")
