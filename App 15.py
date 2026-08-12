@@ -5544,21 +5544,12 @@ def main():
                                 client = get_gsheet_client()
                                 spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
                                 
-                                # ป้องกันปัญหาชื่อชีตมีช่องว่างแฝง
                                 spreadsheet = client.open_by_key(spreadsheet_id)
                                 sheet = spreadsheet.worksheet('Fund_History')
                                 
-                                # เช็คข้อมูลในชีตแบบปลอดภัย รองรับกรณีชีตโล่งๆ ไม่มีข้อมูลเลย
-                                try:
-                                    values = sheet.col_values(1)
-                                except:
-                                    values = []
-                                    
-                                if len(values) > 1:
-                                    ids = [int(i) for i in values[1:] if str(i).isdigit()]
-                                    new_id = max(ids) + 1 if ids else 1
-                                else:
-                                    new_id = 1
+                                # 💡 แก้ไขจุดที่กินโควต้า: ใช้การนับจำนวนแถวตรงๆ แทนการดึงค่าทั้งหมดมาเช็คถี่ๆ
+                                all_rows = sheet.get_all_values()
+                                new_id = len(all_rows) if len(all_rows) > 0 else 1
                                 
                                 # เตรียมข้อมูลสำหรับ append
                                 row_data = [new_id, fund_name, date_buy.strftime("%Y-%m-%d"), "", cost_price, cost_price, units, "Holding"]
@@ -5569,7 +5560,7 @@ def main():
                                 st.success(f"บันทึก {fund_name} สำเร็จ! 🎉")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อหรือบันทึกข้อมูล: {e}")
+                                st.error(f"เกิดข้อผิดพลาด (โควตา Google Sheets อาจเต็มชั่วคราว): {e}")
             
             # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
             with tab_update:
