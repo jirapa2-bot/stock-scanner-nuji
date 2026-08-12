@@ -1754,28 +1754,40 @@ def main():
                 df_gold["กำไร/ขาดทุน (บาท)"] = profit_losses
                 df_gold["% กำไร/ขาดทุน"] = profit_loss_pcts
                 
-                # เพิ่มคอลัมน์ Checkbox สำหรับเลือกรายการที่จะลบ
-                st.markdown("👉 **เลือกรายการที่ต้องการลบ (ติ๊กเครื่องหมายถูกหน้าแถวที่ต้องการ):**")
+                # เพิ่มคอลัมน์ "ลบ" เป็น Checkbox ไว้หน้าสุดของ DataFrame
+                df_gold.insert(0, "ลบ", False)
                 
-                selected_indices = []
-                for i, row in df_gold.iterrows():
-                    col_chk, col_info = st.columns([0.08, 0.92])
-                    with col_chk:
-                        is_checked = st.checkbox("เลือก", key=f"chk_gold_{i}", label_visibility="collapsed")
-                        if is_checked:
-                            selected_indices.append(i)
-                    with col_info:
-                        st.write(f"**[{row['ประเภท']}]** หมายเหตุ: {row['หมายเหตุ'] or '-'} | มูลค่าตลาด: {row['มูลค่าตลาด']:,.2f} ฿ (กำไร/ขาดทุน: {row['กำไร/ขาดทุน (บาท)']:,.2f} ฿)")
-        
-                # ปุ่มดำเนินการลบรายการที่เลือก
+                display_columns = ["ลบ", "ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "กำไร/ขาดทุน (บาท)", "% กำไร/ขาดทุน", "หมายเหตุ"]
+                df_display = df_gold[[col for col in display_columns if col in df_gold.columns]]
+                
+                # ใช้ st.data_editor เพื่อให้ผู้ใช้ติ๊กเลือกจากในตารางได้โดยตรง
+                edited_df = st.data_editor(
+                    df_display,
+                    column_config={
+                        "ลบ": st.column_config.CheckboxColumn("🗑️ ลบ", help="ติ๊กเพื่อเลือกรายการที่ต้องการลบ", default=False),
+                        "น้ำหนัก/มูลค่าซื้อ": st.column_config.NumberColumn(format="%.2f"),
+                        "ราคาต้นทุนเฉลี่ย": st.column_config.NumberColumn(format="%.2f"),
+                        "มูลค่าตั้งต้น": st.column_config.NumberColumn(format="%.2f"),
+                        "ราคาตลาดปัจจุบัน": st.column_config.NumberColumn(format="%.2f"),
+                        "มูลค่าตลาด": st.column_config.NumberColumn(format="%.2f"),
+                        "กำไร/ขาดทุน (บาท)": st.column_config.NumberColumn(format="%.2f"),
+                        "% กำไร/ขาดทุน": st.column_config.NumberColumn(format="%.2f%%"),
+                    },
+                    disabled=[col for col in df_display.columns if col != "ลบ"],
+                    hide_index=True,
+                    use_container_width=True
+                )
+                
+                # ปุ่มยืนยันการลบรายการที่ติ๊กในตาราง
+                selected_indices = edited_df[edited_df["ลบ"] == True].index.tolist()
+                
                 if selected_indices:
-                    if st.button("🗑️ ลบรายการที่เลือก", type="primary"):
-                        # กรองเอาเฉพาะรายการที่ไม่ถูกเลือกเก็บไว้
+                    if st.button("🗑️ ยืนยันลบรายการที่เลือก", type="primary"):
                         st.session_state['gold_portfolio'] = [
                             item for idx, item in enumerate(st.session_state['gold_portfolio']) if idx not in selected_indices
                         ]
                         
-                        # อัปเดตข้อมูลล่าสุดลง Google Sheets ทันที
+                        # อัปเดตข้อมูลลง Google Sheets ทันที
                         try:
                             sheet_gold = get_worksheet_safely(client, 'MyStockData', 'Gold_Portfolio')
                             if sheet_gold is not None:
@@ -1804,22 +1816,6 @@ def main():
                         st.rerun()
         
                 st.markdown("---")
-                display_columns = ["ประเภท", "น้ำหนัก/มูลค่าซื้อ", "หน่วย", "ราคาต้นทุนเฉลี่ย", "มูลค่าตั้งต้น", "ราคาตลาดปัจจุบัน", "มูลค่าตลาด", "กำไร/ขาดทุน (บาท)", "% กำไร/ขาดทุน", "หมายเหตุ"]
-                df_display = df_gold[[col for col in display_columns if col in df_gold.columns]]
-                
-                st.dataframe(
-                    df_display.style.format({
-                        "น้ำหนัก/มูลค่าซื้อ": "{:,.2f}",
-                        "ราคาต้นทุนเฉลี่ย": "{:,.2f}",
-                        "มูลค่าตั้งต้น": "{:,.2f}",
-                        "ราคาตลาดปัจจุบัน": "{:,.2f}",
-                        "มูลค่าตลาด": "{:,.2f}",
-                        "กำไร/ขาดทุน (บาท)": "{:,.2f}",
-                        "% กำไร/ขาดทุน": "{:,.2f}%"
-                    }),
-                    use_container_width=True
-                )
-                
                 total_market_value = sum(calculated_market)
                 total_cost_value = sum(calculated_cost)
                 total_pl = sum(profit_losses)
