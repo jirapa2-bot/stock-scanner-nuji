@@ -5570,34 +5570,74 @@ def main():
             # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
             # ส่วนของหน้าอัปเดตราคา
             with tab_update:
-                st.markdown("### อัปเดตราคาปัจจุบันของกองทุน")
-                
+                st.markdown("### อัปเดตราคาหรือขายกองทุน")
+                            
                 # 1. ดึงข้อมูลกองทุนทั้งหมดมาทำ Dropdown
                 try:
                     client = get_gsheet_client()
                     sheet = client.open_by_key('1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM').worksheet('Fund_History')
                     
-                    # ใช้ get_all_records() เพื่อให้ได้ Dictionary ที่อ่านง่าย
                     all_data = sheet.get_all_records()
                     
                     if all_data:
-                        # ดึงเฉพาะชื่อกองทุนที่ไม่ซ้ำกัน (ใช้ set เพื่อลบค่าซ้ำ)
-                        fund_list = sorted(list(set(row['Fund_Name'] for row in all_data if row['Fund_Name'])))
+                        # กรองเฉพาะกองทุนที่มีสถานะถือครองอยู่ (Status == 'Holding') หรือเลือกจากชื่อทั้งหมด
+                        fund_list = sorted(list(set(row['Fund_Name'] for row in all_data if row.get('Fund_Name') and row.get('Status') == 'Holding')))
                         
-                        selected_fund = st.selectbox("เลือกกองทุนที่ต้องการอัปเดต:", fund_list)
-                        new_price = st.number_input("ราคาปัจจุบันใหม่:", min_value=0.0, step=0.01, format="%.4f")
-                        
-                        if st.button("บันทึกราคาอัปเดต (ในบรรทัดเดิม)"):
-                            # 2. ค้นหาแถวที่กองทุนนี้อยู่
-                            # ต้องหาเลขแถวจาก all_data (ที่ get มา) เพื่อระบุตำแหน่งใน Google Sheets
+                        if not fund_list:
+                            # เผื่อไม่มี Status กำหนด ให้ดึงชื่อทั้งหมดแทน
+                            fund_list = sorted(list(set(row['Fund_Name'] for row in all_data if row['Fund_Name'])))
+            
+                        if fund_list:
+                            selected_fund = st.selectbox("เลือกกองทุนที่ต้องการจัดการ:", fund_list, key="selected_fund_update")
+                            
+                            # ค้นหาข้อมูลของกองทุนที่เลือกเพื่อแสดงผลให้ผู้ใช้เห็นก่อน
+                            selected_row_data = None
+                            selected_row_index = -1
                             for idx, row in enumerate(all_data):
-                                if row['Fund_Name'] == selected_fund:
-                                    row_index = idx + 2 # บวก 2 เพราะแถว 1 คือ Header และ index เริ่มจาก 0
+                                if row['Fund_Name'] == selected_fund and row.get('Status', 'Holding') == 'Holding':
+                                    selected_row_data = row
+                                    selected_row_index = idx + 2 # บวก 2 เพราะแถว 1 คือ Header และ index เริ่มจาก 0
+                                    break
+                            
+                            if selected_row_data:
+                                # แสดงข้อมูลสรุปของกองทุนที่เลือก
+                                st.info(f"📌 **ข้อมูลปัจจุบันของกองทุน:** {selected_fund}\n\n"
+                                        f"- **จำนวนหน่วย:** {selected_row_data.get('Units', 0):,.2f}\n"
+                                        f"- **ราคาเฉลี่ย/ต้นทุน:** {selected_row_data.get('Average_Price', 0):,.4f}\n"
+                                        f"- **ราคาปัจจุบันล่าสุด:** {selected_row_data.get('Current_Price', 0):,.4f}")
+                                
+                                # Dropdown เลือกว่าจะทำอะไรต่อ
+                                action_type = st.radio("เลือกการดำเนินการ:", ["อัปเดตราคาปัจจุบัน", "ขายกองทุนออก"], horizontal=True, key="fund_action_radio")
+                                
+                                if action_type == "อัปเดตราคาปัจจุบัน":
+                                    new_price = st.number_input("ราคาปัจจุบันใหม่:", min_value=0.0, step=0.01, format="%.4f", key="new_price_input")
                                     
-                                    # 3. อัปเดตเฉพาะคอลัมน์ Current_Price (คอลัมน์ F คือคอลัมน์ที่ 6)
-                                    sheet.update_cell(row_index, 6, new_price)
-                                    st.success(f"อัปเดต {selected_fund} เป็นราคา {new_price} สำเร็จ!")
-                                    st.rerun()
+                                    if st.button("💾 บันทึกราคาอัปเดต"):
+                                        # อัปเดตเฉพาะคอลัมน์ Current_Price (สมมติว่าเป็นคอลัมน์ F หรือเช็คตามโครงสร้างจริง)
+                                        sheet.update_cell(selected_row_index, 6, new_price)
+                                        st.success(f"อัปเดตราคา {selected_fund} เป็น {new_price} สำเร็จ!")
+                                        st.rerun()
+                                        
+                                elif action_type == "ขายกองทุนออก":
+                                    sell_units = st.number_input("จำนวนหน่วยที่ต้องการขาย:", min_value=0.0, max_value=float(selected_row_data.get('Units', 0)), step=0.01, format="%.2f", key="sell_units_input")
+                                    sell_price = st.number_input("ราคาขายต่อหน่วย:", min_value=0.0, step=0.01, format="%.4f", key="sell_price_input")
+                                    
+                                    if st.button("💸 ยืนยันการขายกองทุน"):
+                                        # ตัวอย่างการจัดการสถานะหรือบันทึกการขาย (ปรับเปลี่ยนตามโครงสร้างชีตของคุณ)
+                                        # เช่น ถ้าขายหมด ให้เปลี่ยน Status เป็น Sold หรืออัปเดตจำนวนหน่วย
+                                        remaining_units = float(selected_row_data.get('Units', 0)) - sell_units
+                                        if remaining_units <= 0:
+                                            sheet.update_cell(selected_row_index, 8, "Sold") # สมมติคอลัมน์ 8 คือ Status
+                                            st.success(f"ขายกองทุน {selected_fund} ทั้งหมดเรียบร้อยแล้ว!")
+                                        else:
+                                            # อัปเดตจำนวนหน่วยคงเหลือ
+                                            sheet.update_cell(selected_row_index, 3, remaining_units) # สมมติคอลัมน์ 3 คือ Units
+                                            st.success(f"ขายกองทุน {selected_fund} บางส่วน คงเหลือ {remaining_units:,.2f} หน่วย")
+                                        st.rerun()
+                            else:
+                                    st.warning("ไม่พบข้อมูลกองทุนที่มีสถานะถือครองอยู่ในระบบ")
+                        else:
+                            st.info("ยังไม่มีกองทุนในสถานะถือครอง")
                     else:
                         st.info("ยังไม่มีข้อมูลกองทุนในระบบ")
                         
