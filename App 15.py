@@ -106,88 +106,6 @@ def check_and_auto_stamp_portfolio(client, current_total_value):
     except Exception as e:
         pass
 
-# --- วิธีเรียกใช้งาน (นำไปวางในส่วนโหลดข้อมูลกราฟ) ---
-# client = get_gsheet_client()
-# check_and_auto_stamp_portfolio(client, total_stock_and_tfex)
-def extract_pvd_from_image(image_file, year_be, month_name="ธันวาคม"):
-    try:
-        # ดึง API Key จาก st.secrets
-        api_key = st.secrets.get("GOOGLE_API_KEY", "")
-        if not api_key:
-            st.error("ไม่พบ GOOGLE_API_KEY ใน st.secrets กรุณาตรวจสอบการตั้งค่า")
-            return None
-            
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-3.5-flash')
-                
-        # แปลงปี พ.ศ. เป็น ค.ศ. (เช่น 2569 -> 2026)
-        year_ce = int(year_be) - 543
-        
-        prompt = f"""
-        คุณเป็นผู้ช่วยทางการเงินอัจฉริยะ หน้าที่ของคุณคืออ่านรูปภาพรายงานยอดรวมกองทุนสำรองเลี้ยงชีพของเดือน {month_name} ปี พ.ศ. {year_be} (ค.ศ. {year_ce}) นี้ 
-        โดยให้สังเกตที่มุมขวาบนของเอกสารจะมีหัวข้อ "อัตราผลตอบแทนรายบุคคล % (Individual YTD Net Return %)" อยู่ (เช่น 7.01 %)
-        และในรูปจะมีตาราง "ยอดรวมทุกนโยบายการลงทุน (Total Portfolio Balance)" ซึ่งแยกรายการย่อยออกมาดังนี้:
-        1. ยอดยกมา (Balance as of)
-        2. เงินเข้าระหว่างปี (Transferred in during this year)
-        
-        โปรดสกัดข้อมูลตัวเลขทั้งหมดตามหัวตาราง CSV ด้านล่างนี้ให้ออกมาเป็นข้อมูลของเดือน {month_name} ปี {year_ce}:
-        
-        หัวตาราง CSV:
-        Month,Year_CE,Year_BE,Brought_Forward_Member_Saving,Brought_Forward_Member_Benefit,Brought_Forward_Employer_Matching,Brought_Forward_Employer_Benefit,Transferred_Member_Saving,Transferred_Member_Benefit,Transferred_Employer_Matching,Transferred_Employer_Benefit,Member_Saving,Member_Benefit,Member_Total,Employer_Matching,Employer_Benefit,Employer_Total,Grand_Total,Total_Units,YTD_Net_Return_Pct
-        
-        คำอธิบายฟิลด์ข้อมูล:
-        - Month: {month_name}
-        - Year_CE: {year_ce}
-        - Year_BE: {year_be}
-        - Brought_Forward_Member_Saving: ยอดสะสมยกมา (แถว "ยอดยกมา" ช่องเงินสะสมส่วนของสมาชิก)
-        - Brought_Forward_Member_Benefit: ผลประโยชน์ยกมา (แถว "ยอดยกมา" ช่องผลประโยชน์ส่วนของสมาชิก)
-        - Brought_Forward_Employer_Matching: เงินสมทบยกมา (แถว "ยอดยกมา" ช่องเงินสมทบส่วนของนายจ้าง)
-        - Brought_Forward_Employer_Benefit: ผลประโยชน์เงินสมทบยกมา (แถว "ยอดยกมา" ช่องผลประโยชน์ส่วนของนายจ้าง)
-        - Transferred_Member_Saving: เงินสะสมเข้าระหว่างปี (แถว "เงินเข้าระหว่างปี" ช่องเงินสะสมส่วนของสมาชิก)
-        - Transferred_Member_Benefit: ผลประโยชน์เงินสะสมเข้าระหว่างปี (แถว "เงินเข้าระหว่างปี" ช่องผลประโยชน์ส่วนของสมาชิก)
-        - Transferred_Employer_Matching: เงินสมทบเข้าระหว่างปี (แถว "เงินเข้าระหว่างปี" ช่องเงินสมทบส่วนของนายจ้าง)
-        - Transferred_Employer_Benefit: ผลประโยชน์เงินสมทบเข้าระหว่างปี (แถว "เงินเข้าระหว่างปี" ช่องผลประโยชน์ส่วนของนายจ้าง)
-        - Member_Saving: ยอดเงินสะสมรวม (รวม Total)
-        - Member_Benefit: ผลประโยชน์เงินสะสมรวม (รวม Total)
-        - Member_Total: รวมส่วนของสมาชิก (Total Amount)
-        - Employer_Matching: เงินสมทบรวม (รวม Total)
-        - Employer_Benefit: ผลประโยชน์เงินสมทบรวม (รวม Total)
-        - Employer_Total: รวมส่วนของนายจ้าง (Total Amount)
-        - Grand_Total: ยอดรวมทั้งสิ้น
-        - Total_Units: จำนวนหน่วยรวม
-        - YTD_Net_Return_Pct: อัตราผลตอบแทนรายบุคคล % ที่อยู่มุมขวาบนของเอกสาร (ใส่เฉพาะตัวเลข เช่น 7.01 ถ้าไม่มีให้ใส่ 0.00)
-        
-        กฎสำคัญในการแสดงผลตัวเลข:
-        - ทุกค่าที่เป็น "จำนวนเงิน" หรือ "จำนวนหน่วย" ต้องใส่เครื่องหมายจุลภาค (,) คั่นหลักพันให้ถูกต้อง (เช่น 1,204,406.92) ถ้าไม่มีให้ใส่ 0.00
-        - ช่อง YTD_Net_Return_Pct ใส่เฉพาะตัวเลขทศนิยม (เช่น 7.01) ไม่ต้องใส่เครื่องหมาย %
-        - โปรดส่งกลับมาเฉพาะข้อมูล CSV ที่สะอาด (หัวตาราง 1 บรรทัด และข้อมูลตัวเลข 1 บรรทัด) ไม่มีคำอธิบายเพิ่มเติม ไม่ต้องใส่เครื่องหมาย ```csv ครอบ
-        """
-        
-        img = Image.open(image_file)
-        response = model.generate_content([prompt, img])
-        
-        csv_text = response.text.replace("```csv", "").replace("```", "").strip()
-        df_result = pd.read_csv(io.StringIO(csv_text))
-        return df_result
-        
-    except Exception as e:
-        st.error(f"เกิดข้อผิดพลาดในการประมวลผลรูปภาพ: {e}")
-        return None
-        
-def get_latest_pvd_value():
-    try:
-        client = get_gsheet_client()
-        sheet = client.open('MyStockData').worksheet('Provident_Fund')
-        data = sheet.get_all_records()
-        if data:
-            df = pd.DataFrame(data)
-            # ดึงค่าแถวสุดท้าย (ล่าสุด) ของคอลัมน์ Grand_Total
-            latest_val = str(df.iloc[-1]['Grand_Total']).replace(',', '')
-            return float(latest_val)
-    except:
-        return 0.0
-    return 0.0
-
 # ฟังก์ชันดึงมูลค่าประกันล่าสุด
 def get_latest_insurance_value():
     try:
@@ -216,6 +134,18 @@ def get_latest_coop_value():
         pass
     return 0.0
 
+def calculate_fund_result(cost_price, current_price, units):
+    total_cost = cost_price * units
+    current_value = current_price * units
+    profit_loss = current_value - total_cost
+    profit_loss_pct = (profit_loss / total_cost) * 100 if total_cost > 0 else 0
+    return {
+        "Total_Cost": round(total_cost, 2),
+        "Current_Value": round(current_value, 2),
+        "Profit_Loss": round(profit_loss, 2),
+        "Profit_Loss_Pct": round(profit_loss_pct, 2)
+    }
+  
 ###################
 # Def TEFEX #
 ###################
@@ -5497,14 +5427,160 @@ def main():
     # TAB ที่ 2: ภาพรวมความมั่งคั่ง (เพิ่มใหม่สำหรับสินทรัพย์อื่นๆ)
     # ==========================================================
     with main_tab_wealth:
-        st.subheader("📊 ระบบจัดการสินทรัพย์ระยะยาวและความมั่งคั่งรวม (Net Worth)")
-        
-        # 1. ประกาศสร้าง 3 Tabs หลัก
-        wealth_tab_overview, wealth_tab_form_general, wealth_tab_real_estate = st.tabs([
-            "📈 ภาพรวม Net Worth & สัดส่วนสินทรัพย์",         
-            "📝 บันทึกข้อมูล (PVD / สหกรณ์ / ประกัน / ธนาคาร)",
+        # 1. ประกาศสร้าง Tab หลัก (เพิ่ม "💰 กองทุนรวม" เข้าไปต่อจากภาพรวม)
+        wealth_tab_overview, wealth_tab_funds, wealth_tab_form_general, wealth_tab_real_estate = st.tabs([
+            "📈 ภาพรวม Net Worth & สัดส่วนสินทรัพย์",
+            "💰 กองทุนรวม",
+            "📝 บันทึกข้อมูล (สหกรณ์ / ประกัน / ธนาคาร)",
             "🏡 บันทึกอสังหาริมทรัพย์ (บ้าน / คอนโด)"
         ])
+        
+        # ==========================================
+        # TAB ใหม่: กองทุนรวม
+        # ==========================================
+        with wealth_tab_funds:
+            st.subheader("💰 ระบบจัดการกองทุนรวม")
+
+            # สร้าง Tab ย่อยสำหรับการจัดการกองทุน
+            tab_buy, tab_update, tab_summary = st.tabs(["➕ ซื้อกองทุนเพิ่ม", "🔄 อัปเดตราคา/ขาย", "📈 ภาพรวมพอร์ต"])
+            
+            # 1. Tab ซื้อกองทุนใหม่
+            with tab_buy:
+                st.markdown("### บันทึกซื้อกองทุนใหม่")
+                with st.form("form_buy_fund"):
+                    col1, col2 = st.columns(2)
+                    fund_name = col1.text_input("ชื่อกองทุน (เช่น SCBSET, K-Equity):")
+                    date_buy = col2.date_input("วันที่ซื้อ:", datetime.date.today())
+                    
+                    col3, col4 = st.columns(2)
+                    cost_price = col3.number_input("ราคาต้นทุนเฉลี่ยต่อหน่วย:", min_value=0.0, step=0.01, format="%.4f")
+                    units = col4.number_input("จำนวนหน่วย (Units):", min_value=0.0001, step=1.0, format="%.4f")
+                    
+                    submitted = st.form_submit_button("บันทึกการซื้อกองทุน", use_container_width=True, type="primary")
+                    if submitted:
+                        if not fund_name:
+                            st.warning("กรุณากรอกชื่อกองทุนครับ")
+                        else:
+                            try:
+                                client = get_gsheet_client()
+                                spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU' # ใช้ ID เดิมของคุณ
+                                sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
+                                
+                                # หา Fund_ID ถัดไป
+                                existing_data = sheet.get_all_records()
+                                new_id = len(existing_data)
+                                
+                                # ข้อมูลที่จะ append: Fund_ID, Fund_Name, Date_Buy, Date_Sell, Cost_Price, Current_Price, Units, Status
+                                row_data = [new_id, fund_name, str(date_buy), "", cost_price, cost_price, units, "Holding"]
+                                sheet.append_row(row_data)
+                                
+                                st.cache_data.clear()
+                                st.success("บันทึกกองทุนสำเร็จ! 🎉")
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"เกิดข้อผิดพลาด: {e}")
+            
+            # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
+            with tab_update:
+                st.markdown("### อัปเดตราคาตลาด / ขายกองทุน")
+                try:
+                    client = get_gsheet_client()
+                    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                    sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
+                    fund_df = pd.DataFrame(sheet.get_all_records())
+                    
+                    if not fund_df.empty and 'Status' in fund_df.columns:
+                        holding_df = fund_df[fund_df['Status'] == 'Holding']
+                        
+                        if not holding_df.empty:
+                            selected_id = st.selectbox("เลือกกองทุนที่ต้องการจัดการ:", holding_df['Fund_ID'].tolist(), format_func=lambda x: f"ID: {x} - {holding_df[holding_df['Fund_ID'] == x]['Fund_Name'].values[0]}")
+                            
+                            selected_row = holding_df[holding_df['Fund_ID'] == selected_id].iloc[0]
+                            st.info(f"📌 กองทุน: **{selected_row['Fund_Name']}** | ต้นทุนเดิม: **{selected_row['Cost_Price']}** | จำนวนหน่วย: **{selected_row['Units']}**")
+                            
+                            up_col1, up_col2 = st.columns(2)
+                            new_current_price = up_col1.number_input("อัปเดราคาปัจจุบันต่อหน่วย:", value=float(selected_row['Cost_Price']), step=0.01, format="%.4f")
+                            action_type = up_col2.selectbox("การจัดการ:", ["อัปเดตราคาปัจจุบัน", "ขายออก (ปิดสถานะ)"])
+                            
+                            if action_type == "ขายออก (ปิดสถานะ)":
+                                sell_date = st.date_input("วันที่ขาย:", datetime.date.today())
+                            
+                            if st.button("ยืนยันการทำรายการ", use_container_width=True, type="primary"):
+                                row_index = int(selected_id) + 2 # คำนวณแถวใน Google Sheets (Header อยู่แถว 1)
+                                if action_type == "อัปเดตราคาปัจจุบัน":
+                                    # อัปเดตแค่ Current_Price (Col F คือ Column ที่ 6)
+                                    sheet.update_cell(row_index, 6, new_current_price)
+                                    st.success("อัปเดตราคาปัจจุบันสำเร็จ!")
+                                else:
+                                    # อัปเดต วันที่ขาย, ราคาปัจจุบัน, และเปลี่ยน Status เป็น Sold
+                                    sheet.update_cell(row_index, 4, str(sell_date)) # Date_Sell
+                                    sheet.update_cell(row_index, 6, new_current_price) # Current_Price
+                                    sheet.update_cell(row_index, 8, "Sold") # Status
+                                    st.success("บันทึกการขายกองทุนสำเร็จ!")
+                                
+                                st.cache_data.clear()
+                                st.rerun()
+                        else:
+                            st.info("ไม่มีกองทุนที่ถือครองอยู่ขณะนี้")
+                    else:
+                        st.info("ยังไม่มีข้อมูลในระบบกองทุน")
+                except Exception as e:
+                    st.warning(f"ยังไม่พบชีต Fund_History หรือเกิดข้อผิดพลาด: {e}")
+            
+            # 3. Tab ภาพรวมพอร์ต (แสดงมูลค่าต้นทุน, มูลค่าปัจจุบัน)
+            with tab_summary:
+                st.markdown("### สรุปมูลค่าพอร์ตลงทุน")
+                try:
+                    client = get_gsheet_client()
+                    spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                    sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
+                    summary_df = pd.DataFrame(sheet.get_all_records())
+                    
+                    if not summary_df.empty and 'Status' in summary_df.columns:
+                        active_df = summary_df[summary_df['Status'] == 'Holding'].copy()
+                        
+                        if not active_df.empty:
+                            # คำนวณค่าพอร์ตแต่ละตัว
+                            total_portfolio_cost = 0
+                            total_portfolio_value = 0
+                            
+                            display_data = []
+                            for _, row in active_df.iterrows():
+                                cost_p = float(row['Cost_Price'])
+                                curr_p = float(row['Current_Price'])
+                                units = float(row['Units'])
+                                res = calculate_fund_result(cost_p, curr_p, units)
+                                
+                                total_portfolio_cost += res['Total_Cost']
+                                total_portfolio_value += res['Current_Value']
+                                
+                                display_data.append({
+                                    "ชื่อกองทุน": row['Fund_Name'],
+                                    "วันที่ซื้อ": row['Date_Buy'],
+                                    "ต้นทุนเฉลี่ย": cost_p,
+                                    "ราคาปัจจุบัน": curr_p,
+                                    "จำนวนหน่วย": units,
+                                    "มูลค่าต้นทุน": res['Total_Cost'],
+                                    "มูลค่าปัจจุบัน": res['Current_Value'],
+                                    "กำไร/ขาดทุน": res['Profit_Loss'],
+                                    "(%)": f"{res['Profit_Loss_Pct']}%"
+                                })
+                            
+                            # แสดง Metric รวมด้านบน
+                            total_profit = total_portfolio_value - total_portfolio_cost
+                            m1, m2, m3 = st.columns(3)
+                            m1.metric("มูลค่าต้นทุนรวม", f"{total_portfolio_cost:,.2f} บาท")
+                            m2.metric("มูลค่าปัจจุบันรวม", f"{total_portfolio_value:,.2f} บาท", f"{total_profit:,.2f} บาท")
+                            m3.metric("ผลตอบแทนรวม (%)", f"{(total_profit/total_portfolio_cost)*100:.2f}%" if total_portfolio_cost > 0 else "0.00%")
+                            
+                            st.divider()
+                            st.dataframe(pd.DataFrame(display_data), use_container_width=True)
+                        else:
+                            st.info("ไม่มีกองทุนในพอร์ตที่กำลังถืออยู่")
+                    else:
+                        st.info("ยังไม่มีข้อมูลกองทุนในชีต")
+                except Exception as e:
+                    st.warning(f"ยังไม่พบชีต Fund_History หรือเกิดข้อผิดพลาด: {e}")
 
   
         # ==========================================
@@ -5512,8 +5588,19 @@ def main():
         # ==========================================
         with wealth_tab_overview:
             
-            # 1. ดึงมูลค่าสินทรัพย์แต่ละส่วน (ส่วนเดิมของคุณ)
-            pvd_value = get_latest_pvd_value()
+            # 1. ดึงมูลค่าสินทรัพย์แต่ละส่วน (ดึงยอดรวมกองทุนรวม)
+            try:
+                sheet_fund = get_worksheet_safely(client, 'MyStockData', 'Fund_History')
+                fund_records = sheet_fund.get_all_records() if sheet_fund is not None else []
+                fund_df = pd.DataFrame(fund_records)
+                if not fund_df.empty and 'Status' in fund_df.columns:
+                    active_funds = fund_df[fund_df['Status'] == 'Holding']
+                    total_fund_value = sum(float(r['Current_Price']) * float(r['Units']) for _, r in active_funds.iterrows())
+                else:
+                    total_fund_value = 0.0
+            except Exception:
+                total_fund_value = 0.0
+
             insurance_value = get_latest_insurance_value()
             coop_value = get_latest_coop_value()
             
@@ -5593,10 +5680,10 @@ def main():
             
             total_stock_and_tfex = base_stock_value + tfex_portfolio_value
             
-            # 3. คำนวณ Net Worth แบบไม่รวมอสังหาฯ (สินทรัพย์สภาพคล่องและการลงทุนล้วนๆ)
-            net_worth_excl_re = (total_stock_and_tfex + pvd_value + insurance_value + 
-                                  coop_value + sso_value + pension_insurance_value + 
-                                  bank_balance + total_gold_value)
+            # 3. คำนวณ Net Worth แบบไม่รวมอสังหาฯ (เปลี่ยนจาก pvd_value เป็น total_fund_value)
+            net_worth_excl_re = (total_stock_and_tfex + total_fund_value + insurance_value + 
+                                 coop_value + sso_value + pension_insurance_value + 
+                                 bank_balance + total_gold_value)
             
             # 4. คำนวณ Net Worth รวมทั้งหมด (รวมอสังหาฯ แล้ว)
             net_worth_total = net_worth_excl_re + total_real_estate
@@ -5628,11 +5715,11 @@ def main():
                         
             st.divider()
         
-            # --- 6. แสดงผลใน Metrics ย่อย ---
+            # --- 6. แสดงผลใน Metrics ย่อย (เปลี่ยน PVD เป็น กองทุนรวม) ---
             st.markdown("#### 💼 สินทรัพย์สภาพคล่องและการลงทุน")
             row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
             row1_col1.metric("พอร์ตหุ้น + TFEX", f"{total_stock_and_tfex:,.0f} ฿")
-            row1_col2.metric("กองทุนสำรองเลี้ยงชีพ", f"{pvd_value:,.0f} ฿")
+            row1_col2.metric("กองทุนรวม", f"{total_fund_value:,.0f} ฿")
             row1_col3.metric("ประกัน Unit Linked", f"{insurance_value:,.0f} ฿")
             row1_col4.metric("สหกรณ์ฯ", f"{coop_value:,.0f} ฿")
         
@@ -5655,10 +5742,10 @@ def main():
             st.divider()
             st.subheader("📈 วิเคราะห์สัดส่วนสินทรัพย์สภาพคล่องและการลงทุน")
         
-            # สร้างข้อมูลสำหรับกราฟ (เพิ่ม 'ทองคำ' เข้าไปในสัดส่วน)
+            # สร้างข้อมูลสำหรับกราฟ (เปลี่ยนจาก PVD เป็น กองทุนรวม)
             asset_data = {
-                "Asset_Type": ["พอร์ตหุ้น + TFEX", "PVD", "ประกัน Unit Linked", "สหกรณ์ก๊าซ ปตท.", "ประกันสังคม", "บัญชีธนาคาร", "ประกันบำนาญ", "ทองคำ"],
-                "Value": [total_stock_and_tfex, pvd_value, insurance_value, coop_value, sso_value, bank_balance, pension_insurance_value, total_gold_value]
+                "Asset_Type": ["พอร์ตหุ้น + TFEX", "กองทุนรวม", "ประกัน Unit Linked", "สหกรณ์ก๊าซ ปตท.", "ประกันสังคม", "บัญชีธนาคาร", "ประกันบำนาญ", "ทองคำ"],
+                "Value": [total_stock_and_tfex, total_fund_value, insurance_value, coop_value, sso_value, bank_balance, pension_insurance_value, total_gold_value]
             }
             df_assets = pd.DataFrame(asset_data)
             df_assets = df_assets[df_assets["Value"] > 0]
@@ -5696,162 +5783,7 @@ def main():
         with wealth_tab_form_general:
             st.markdown("### 📝 บันทึกและอัปเดตข้อมูลสินทรัพย์ระยะยาว")
             
-            # --- 1. ส่วน PVD (รวมฟอร์มและตารางสรุปไว้ใน Expander เดียวกัน) ---
-            with st.expander("📤 เพิ่ม/อัปเดตข้อมูลกองทุนสำรองเลี้ยงชีพ (PVD) รายเดือน", expanded=False):
-                with st.form("pvd_upload_form"):
-                    col_y1, col_y2, col_m = st.columns(3)
-                    
-                    with col_y1:
-                        input_year_be = st.number_input("ปี พ.ศ.", min_value=2500, max_value=2570, value=2569)
-                    with col_y2:
-                        st.info(f"ค.ศ.: **{int(input_year_be) - 543}**")
-                    with col_m:
-                        months_list = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน", 
-                                       "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
-                        selected_month = st.selectbox("เลือกเดือน", months_list)
-                        
-                    uploaded_pvd_file = st.file_uploader("อัปโหลดรูปภาพรายงาน PVD รายเดือน (JPG, PNG)", type=["jpg", "jpeg", "png"])
-                    
-                    submitted_pvd = st.form_submit_button("🔍 อ่านข้อมูลจากรูปภาพด้วย AI")
-                    
-                    if submitted_pvd:
-                        if uploaded_pvd_file is not None:
-                            with st.spinner("กำลังให้ AI อ่านและวิเคราะห์ข้อมูลจากภาพ..."):
-                                df_extracted = extract_pvd_from_image(uploaded_pvd_file, input_year_be, selected_month)
-                                
-                                if df_extracted is not None and not df_extracted.empty:
-                                    if 'Month' not in df_extracted.columns:
-                                        df_extracted.insert(0, 'Month', selected_month)
-                                    
-                                    st.success("อ่านข้อมูลสำเร็จ! ตรวจสอบความถูกต้องด้านล่าง:")
-                                    st.dataframe(df_extracted, use_container_width=True)
-                                    
-                                    st.session_state['temp_pvd_df'] = df_extracted
-                                else:
-                                    st.warning("ไม่สามารถดึงข้อมูลจากรูปภาพได้ กรุณาลองใหม่อีกครั้ง")
-                        else:
-                            st.warning("กรุณาอัปโหลดรูปภาพก่อนกดปุ่มประมวลผล")
-                
-                # ส่วนยืนยันบันทึกข้อมูล (อยู่นอกฟอร์มหลัก แต่ยังอยู่ใน Expander)
-                if 'temp_pvd_df' in st.session_state and st.session_state['temp_pvd_df'] is not None:
-                    st.write("---")
-                    st.write("📋 **ข้อมูลที่พร้อมบันทึก:**")
-                    st.dataframe(st.session_state['temp_pvd_df'], use_container_width=True)
-                    
-                    if st.button("💾 ยืนยันบันทึกข้อมูลนี้ลง Google Sheets", key="confirm_pvd_save"):
-                        try:
-                            client = get_gsheet_client()
-                            sheet = client.open('MyStockData').worksheet('Provident_Fund')
-                            
-                            existing_data = sheet.get_all_records()
-                            df_existing = pd.DataFrame(existing_data) if existing_data else pd.DataFrame()
-                            
-                            df_to_save = st.session_state['temp_pvd_df'].fillna(0)
-                            
-                            is_duplicate = False
-                            if not df_existing.empty and 'Month' in df_existing.columns and 'Year_BE' in df_existing.columns:
-                                match_idx = df_existing[
-                                    (df_existing['Year_BE'].astype(str) == str(input_year_be)) & 
-                                    (df_existing['Month'] == selected_month)
-                                ].index
-                                
-                                if len(match_idx) > 0:
-                                    is_duplicate = True
-                                    row_number_to_update = match_idx[0] + 2 
-                                    
-                                    values_to_write = list(df_to_save.iloc[0].values)
-                                    sheet.update(f"A{row_number_to_update}", [values_to_write])
-                                    st.success(f"✅ อัปเดตข้อมูลของ **{selected_month} พ.ศ. {input_year_be}** เรียบร้อยแล้ว")
-                            
-                            if not is_duplicate:
-                                for row in df_to_save.values.tolist():
-                                    sheet.append_row(row)
-                                st.success(f"✅ บันทึกข้อมูลใหม่ของ **{selected_month} พ.ศ. {input_year_be}** เรียบร้อยแล้ว!")
-                            
-                            del st.session_state['temp_pvd_df']
-                            
-                            # 👇 --- แทรกตรงนี้ครับ เพื่อรอให้ Google Sheets บันทึกข้อมูลเสร็จและเคลียร์แคชก่อนรีรัน ---
-                            import time
-                            time.sleep(1.5)
-                            st.cache_data.clear()
-                            # --------------------------------------------------------------------------------
-                            
-                            st.rerun()
-                            
-                        except Exception as e:
-                            if "429" in str(e) or "Quota exceeded" in str(e):
-                                st.error("❌ Google Sheets API เกินโควตาชั่วคราว (Rate Limit 429) กรุณารอสัก 30 วินาที แล้วลองกดบันทึกใหม่อีกครั้งครับ")
-                            else:
-                                st.error(f"❌ เกิดข้อผิดพลาดในการบันทึก: {e}")
-            
-                # --- 1. ดึงข้อมูลจาก Google Sheets มาเตรียมไว้ก่อน ---
-                df_pvd_history = pd.DataFrame()
-                try:
-                    client = get_gsheet_client()
-                    sheet_pvd = client.open('MyStockData').worksheet('Provident_Fund')
-                    pvd_records = sheet_pvd.get_all_records()
-                    if pvd_records:
-                        df_pvd_history = pd.DataFrame(pvd_records)
-                except Exception as e:
-                    pass
-   
-                # --- ส่วนแสดงกราฟแท่ง % ผลตอบแทน (% Benefit) คำนวณอัตโนมัติจากข้อมูลที่มี ---
-                st.markdown("---")
-                st.subheader("📊 กราฟแสดง % ผลตอบแทนรายบุคคล (YTD Net Return %)")
-                
-                if not df_pvd_history.empty:
-                    try:
-                        def clean_num(series):
-                            if series is None:
-                                return pd.Series(0.0, index=df_pvd_history.index)
-                            return pd.to_numeric(
-                                series.astype(str)
-                                .str.replace(',', '', regex=False)
-                                .str.replace(' ', '', regex=False)
-                                .str.replace('%', '', regex=False),
-                                errors='coerce'
-                            ).fillna(0.0)
-            
-                        # ดึงข้อมูลจากคอลัมน์ YTD_Net_Return_Pct โดยตรง
-                        if 'YTD_Net_Return_Pct' in df_pvd_history.columns:
-                            chart_col = 'YTD_Net_Return_Pct'
-                            df_pvd_history[chart_col] = clean_num(df_pvd_history[chart_col])
-                        else:
-                            # เผื่อกรณียังไม่มีคอลัมน์นี้ในชีต ให้สร้างเป็น 0 ไปก่อนเพื่อกัน error
-                            df_pvd_history['YTD_Net_Return_Pct'] = 0.0
-                            chart_col = 'YTD_Net_Return_Pct'
-                            
-                    except Exception as e:
-                        st.warning(f"⚠️ เกิดข้อผิดพลาดในการอ่านข้อมูลกราฟ: {e}")
-                        chart_col = None
-                        
-                    if chart_col and chart_col in df_pvd_history.columns:
-                        if 'Month' in df_pvd_history.columns and 'Year_BE' in df_pvd_history.columns:
-                            df_pvd_history['Period'] = df_pvd_history['Month'].astype(str) + " " + df_pvd_history['Year_BE'].astype(str)
-                            chart_data = df_pvd_history.set_index('Period')[chart_col]
-                        else:
-                            chart_data = df_pvd_history[chart_col]
-                        
-                        chart_data = pd.to_numeric(chart_data, errors='coerce').fillna(0.0)
-                        
-                        # แสดงกราฟแท่ง
-                        st.bar_chart(chart_data)
-                    else:
-                        st.info("💡 ไม่สามารถสร้างกราฟได้ เนื่องจากข้อมูลคอลัมน์ไม่เพียงพอ")
-                else:
-                    st.info("💡 ยังไม่มีข้อมูลสำหรับแสดงกราฟ กรุณาอัปโหลดข้อมูลก่อนครับ")
-            
-                # --- 3. ส่วนแสดงตารางสรุปการเติบโต ---
-                st.markdown("---")
-                st.subheader("📈 ตารางสรุปการเติบโตและผลตอบแทนกองทุน PVD")
-                if not df_pvd_history.empty:
-                    if 'Year_BE' in df_pvd_history.columns:
-                        df_pvd_history['Year_BE'] = pd.to_numeric(df_pvd_history['Year_BE'], errors='coerce')
-                    st.dataframe(df_pvd_history, use_container_width=True, hide_index=True)
-                else:
-                    st.info("ยังไม่มีข้อมูลประวัติในชีต Provident_Fund")
-
-            # --- 2. ส่วนประกันภัย Unit Linked ---
+            # ---  ส่วนประกันภัย Unit Linked ---
             with st.expander("📤 เพิ่ม/อัปเดตข้อมูลประกันควบการลงทุน (Unit Linked)", expanded=False):
                 with st.form("insurance_upload_form"):
                     col_d, col_v = st.columns(2)
