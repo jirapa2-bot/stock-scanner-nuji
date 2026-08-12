@@ -3477,20 +3477,18 @@ def main():
                         with col1:
                             options = ["  "] + portfolio_stocks
                             
-                            # 🌟 สร้างฟังก์ชัน Callback สำหรับอัปเดต Sector อัตโนมัติเมื่อเปลี่ยนตัวเลือกหุ้น
+                            # ฟังก์ชันอัปเดต Sector อัตโนมัติ
                             def update_sector_on_select():
                                 selected = st.session_state.journal_select_ticker
                                 if selected != "  ":
-                                    # 1. เช็คจากพอร์ตก่อน
                                     matched_item = next((item for item in st.session_state.my_portfolio if item.get('หุ้น') == selected), None)
                                     if matched_item and matched_item.get('Sector') and matched_item.get('Sector') != "General / Unspecified":
                                         st.session_state.journal_p_sector = matched_item['Sector']
                                     else:
-                                        # 2. ถ้าไม่มีในพอร์ต ดึงจาก Dictionary A-Z
                                         st.session_state.journal_p_sector = get_sector_from_mapping(selected)
                                 else:
                                     st.session_state.journal_p_sector = "General / Unspecified"
-    
+                    
                             select_ticker = st.selectbox(
                                 "เลือกหุ้นจากพอร์ต:", 
                                 options, 
@@ -3498,35 +3496,66 @@ def main():
                                 on_change=update_sector_on_select
                             )
                             
-                            # กำหนดค่าเริ่มต้นของ Sector ตอนโหลดครั้งแรก
                             if "journal_p_sector" not in st.session_state:
                                 st.session_state.journal_p_sector = "General / Unspecified"
-    
+                    
                             if select_ticker != "  ":
                                 p_ticker = select_ticker
                             else:
                                 p_ticker = st.text_input("ชื่อหุ้น:", key="journal_p_ticker")
-                                # ถ้าพิมพ์ชื่อหุ้นใหม่เอง ให้เช็คจาก Dictionary แล้วอัปเดตลงช่อง Sector ทันที
                                 if p_ticker:
                                     st.session_state.journal_p_sector = get_sector_from_mapping(p_ticker)
-    
-                            # ช่องกรอก Sector ที่ผูกกับ st.session_state.journal_p_sector โดยตรง
+                    
                             p_sector = st.text_input("กลุ่มอุตสาหกรรม (Sector):", key="journal_p_sector")
                             
                             p_status = st.selectbox("สถานะรายการ:", ["Open (กำลังถือ)", "Closed (ขายแล้ว)"], key="journal_p_status")
                             
-                            if p_status == "Closed (ขายแล้ว)":
-                                p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
-                                p_sell_date = st.date_input("📅 วันที่ขายจริง (วันที่ทำรายการ):", key="journal_p_sell_date")
+                            # 🌟 เพิ่มเติมส่วนการเลือก "ขายรายไม้" หากเป็นสถานะ Closed และมีหุ้นนี้อยู่ใน Journal (ที่ยัง Open อยู่)
+                            selected_lot_info = None
+                            if p_status == "Closed (ขายแล้ว)" and select_ticker != "  ":
+                                # ค้นหาประวัติการซื้อหุ้นตัวนี้ที่สถานะยัง Open อยู่จาก journal_data
+                                open_lots = [
+                                    entry for entry in st.session_state.get('journal_data', [])
+                                    if entry.get('หุ้น') == select_ticker and ("ซื้อ" in entry.get('ประเภท', '') or entry.get('สถานะ') == "Open (กำลังถือ)")
+                                ]
+                                
+                                if open_lots:
+                                    st.markdown("---")
+                                    sell_mode = st.radio("รูปแบบการขาย:", ["ขายทั้งหมดทุกไม้รวมกัน", "ระบุเลือกขายเฉพาะไม้ (Lot)"], key="journal_sell_mode")
+                                    
+                                    if sell_mode == "ระบุเลือกขายเฉพาะไม้ (Lot)":
+                                        # สร้าง Label ให้ผู้ใช้เลือกดูว่าแต่ละไม้ซื้อวันที่เท่าไหร่ จำนวนเท่าไหร่ ราคาเท่าไหร่
+                                        lot_options = {
+                                            f"ซื้อวันที่: {lot.get('วันที่ซื้อ', lot.get('วันที่'))} | จำนวน: {lot.get('จำนวนหุ้นที่ซื้อ')} หุ้น | ต้นทุน: {lot.get('ราคาหุ้นที่ซื้อ')} ฿": lot
+                                            for lot in open_lots
+                                        }
+                                        chosen_lot_label = st.selectbox("เลือกไม้ที่ต้องการขาย:", list(lot_options.keys()), key="journal_chosen_lot")
+                                        selected_lot_info = lot_options[chosen_lot_label]
+                                        
+                                        # ล็อกวันที่ซื้อตามไม้นั้นๆ อัตโนมัติ
+                                        p_buy_date = datetime.strptime(selected_lot_info.get('วันที่ซื้อ', selected_lot_info.get('วันที่')), "%Y-%m-%d").date()
+                                    else:
+                                        p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
+                                    st.markdown("---")
+                                else:
+                                    p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
                             else:
-                                p_buy_date = st.date_input("📅 วันที่ทำรายการซื้อ:", key="journal_open_date")
-                                p_sell_date = None
-                            
+                                if p_status == "Closed (ขายแล้ว)":
+                                    p_buy_date = st.date_input("📅 วันที่ซื้อหุ้น (ต้นทุนเดิม):", key="journal_p_buy_date")
+                                else:
+                                    p_buy_date = st.date_input("📅 วันที่ทำรายการซื้อ:", key="journal_open_date")
+                                    
+                            p_sell_date = st.date_input("📅 วันที่ขายจริง (วันที่ทำรายการ):", key="journal_p_sell_date") if p_status == "Closed (ขายแล้ว)" else None
+                                
                         with col2:
                             p_type = st.selectbox("ประเภท:", ["ซื้อ (Buy)", "ขายทำกำไร (Take Profit)", "ขายตัดขาดทุน (Stop Loss)"], key="journal_p_type")
+                            
+                            # ถ้าเลือกขายแบบระบุไม้ ให้ดึงจำนวนหุ้นของไม้นั้นมาเป็นค่าเริ่มต้นหรือแนะนำได้
+                            default_qty = int(selected_lot_info.get('จำนวนหุ้นที่ซื้อ', 100)) if selected_lot_info else 100
+                            
                             p_result = st.number_input("กำไร/ขาดทุน (บาท):", step=100.0, format="%.2f", help="กรอกแค่ตัวเลข ระบบจะใส่เครื่องหมายให้เอง", key="journal_p_result")
                             p_price = st.number_input("ราคาต่อหุ้น:", min_value=0.01, step=0.05, format="%.2f", key="journal_p_price")
-                            p_qty = st.number_input("จำนวนหุ้น:", min_value=1, step=100, key="journal_p_qty")
+                            p_qty = st.number_input("จำนวนหุ้น:", min_value=1, value=default_qty, step=100, key="journal_p_qty")
                             p_comm = st.number_input("ค่าธรรมเนียม:", min_value=0.0, step=1.0, key="journal_p_comm")
                             
                         p_reason = st.text_area("เหตุผล/กลยุทธ์:", key="journal_p_reason")
@@ -3539,7 +3568,6 @@ def main():
                                 total_val = (p_qty * p_price)
                                 ticker_upper = p_ticker.upper()
                                 
-                                # Logic อัตโนมัติ: ถ้าเป็น Stop Loss หรือ ขาดทุน ให้บังคับเป็นค่าลบ
                                 final_result = float(p_result)
                                 if "Stop Loss" in p_type or "ขาดทุน" in p_status:
                                     final_result = -abs(final_result) 
@@ -3548,7 +3576,6 @@ def main():
                                 
                                 transaction_date_str = str(p_sell_date) if p_status == "Closed (ขายแล้ว)" else str(p_buy_date)
                                 
-                                # 1. จัดการข้อมูล Portfolio (ใช้ .get ป้องกัน KeyError 100%)
                                 found_idx = next((i for i, item in enumerate(st.session_state.my_portfolio) if item.get('หุ้น', item.get('Ticker', '')) == ticker_upper), -1)
                                 
                                 if "ซื้อ" in p_type and p_status != "Closed (ขายแล้ว)":
@@ -3561,7 +3588,6 @@ def main():
                                         old_avg_price = float(old.get('avg_price', old.get('ต้นทุนเฉลี่ย', 0)))
                                         
                                         new_shares = old_shares + p_qty
-                                        # คำนวณต้นทุนเฉลี่ยใหม่ (Average Cost) อย่างถูกต้องแม่นยำ
                                         new_cost = ((old_shares * old_avg_price) + total_val) / new_shares if new_shares > 0 else p_price
                                         
                                         st.session_state.my_portfolio[found_idx] = {
@@ -3578,24 +3604,20 @@ def main():
                                             'Sector': p_sector
                                         })
                                 
-                                else: # กรณีขาย (รองรับทั้งขายหมดและทยอยขาย)
+                                else: # กรณีขาย
                                     log_cash_transaction(date=transaction_date_str, trans_type="ขายหุ้น " + ticker_upper, amount=(total_val - p_comm), note=f"ขาย {p_qty} หุ้น ที่ราคา {p_price}")
                                     st.session_state.cash_balance += (total_val - p_comm)
                                     
                                     if found_idx != -1:
                                         old = st.session_state.my_portfolio[found_idx]
                                         old_shares = float(old.get('shares', old.get('จำนวน', 0)))
-                                        
                                         new_shares = old_shares - p_qty
                                         
                                         if new_shares > 0:
-                                            # อัปเดตจำนวนหุ้นที่เหลือ (ต้นทุนเฉลี่ยตัวเดิมไม่ต้องเปลี่ยน)
                                             st.session_state.my_portfolio[found_idx]['shares'] = new_shares
                                         else:
-                                            # ถ้าขายหมดพอร์ต ลบรายการออก
                                             st.session_state.my_portfolio.pop(found_idx)
                                 
-                                # 2. เพิ่มข้อมูลเข้า Journal (รวม Sector)
                                 if "journal_data" not in st.session_state:
                                     st.session_state.journal_data = []
                                     
@@ -3615,7 +3637,6 @@ def main():
                                 }
                                 st.session_state.journal_data.append(new_entry)
                                 
-                                # 3. บันทึกข้อมูลลง Google Sheets
                                 save_portfolio()
                                 save_journal()
                                 save_cash_balance(st.session_state.cash_balance)
@@ -3623,7 +3644,6 @@ def main():
                                 
                                 st.success(f"บันทึก {ticker_upper} สำเร็จ! (กำไร/ขาดทุน: {final_result:,.2f} ฿)")
                                 st.rerun()
-                                
                     # 3. ตารางแสดงพอร์ต (เชื่อมต่อ Google Sheets)
                     st.divider()
                     st.subheader("📊 สรุปพอร์ตการลงทุน")
