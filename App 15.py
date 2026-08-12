@@ -5575,7 +5575,7 @@ def main():
                 # 1. ดึงข้อมูลกองทุนทั้งหมดมาทำ Dropdown
                 try:
                     client = get_gsheet_client()
-                    sheet = client.open_by_key('1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU').worksheet('Fund_History')
+                    sheet = client.open_by_key('1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM').worksheet('Fund_History')
                     
                     # ใช้ get_all_records() เพื่อให้ได้ Dictionary ที่อ่านง่าย
                     all_data = sheet.get_all_records()
