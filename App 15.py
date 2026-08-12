@@ -5542,7 +5542,7 @@ def main():
                         else:
                             try:
                                 client = get_gsheet_client()
-                                spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
+                                spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
                                 sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
                                 
                                 # ปรับปรุงการหา ID: หาค่า ID สูงสุดในคอลัมน์แรกเพื่อป้องกัน ID ซ้ำ
