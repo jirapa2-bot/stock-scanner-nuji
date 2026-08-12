@@ -5526,36 +5526,47 @@ def main():
                 with st.form("form_buy_fund"):
                     col1, col2 = st.columns(2)
                     fund_name = col1.text_input("ชื่อกองทุน (เช่น SCBSET, K-Equity):")
-                    # แก้ไขจาก datetime.date.today() เป็น date.today() เพื่อป้องกัน Error
                     date_buy = col2.date_input("วันที่ซื้อ:", date.today())
                     
                     col3, col4 = st.columns(2)
-                    cost_price = col3.number_input("ราคาต้นทุนเฉลี่ยต่อหน่วย:", min_value=0.0, step=0.01, format="%.4f")
-                    units = col4.number_input("จำนวนหน่วย (Units):", min_value=0.0001, step=1.0, format="%.4f")
+                    cost_price = col3.number_input("ราคาต้นทุนเฉลี่ยต่อหน่วย:", min_value=0.0, step=0.0001, format="%.4f")
+                    units = col4.number_input("จำนวนหน่วย (Units):", min_value=0.0001, step=0.0001, format="%.4f")
                     
                     submitted = st.form_submit_button("บันทึกการซื้อกองทุน", use_container_width=True, type="primary")
+                    
                     if submitted:
                         if not fund_name:
                             st.warning("กรุณากรอกชื่อกองทุนครับ")
+                        elif cost_price <= 0 or units <= 0:
+                            st.warning("กรุณากรอกราคาและจำนวนหน่วยให้ถูกต้องครับ")
                         else:
                             try:
                                 client = get_gsheet_client()
-                                spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU' # ใช้ ID เดิมของคุณ
+                                spreadsheet_id = '1moD7gjKnnLXDvCTfwVVhBmDwo5t0c7emErGbtJtGEWU'
                                 sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
                                 
-                                # หา Fund_ID ถัดไป
-                                existing_data = sheet.get_all_records()
-                                new_id = len(existing_data)
+                                # ปรับปรุงการหา ID: หาค่า ID สูงสุดในคอลัมน์แรกเพื่อป้องกัน ID ซ้ำ
+                                values = sheet.col_values(1) # สมมติคอลัมน์ A คือ Fund_ID
+                                if len(values) > 1:
+                                    # ข้าม header (แถวแรก) แล้วหาเลข max
+                                    ids = [int(i) for i in values[1:] if i.isdigit()]
+                                    new_id = max(ids) + 1 if ids else 1
+                                else:
+                                    new_id = 1
                                 
-                                # ข้อมูลที่จะ append: Fund_ID, Fund_Name, Date_Buy, Date_Sell, Cost_Price, Current_Price, Units, Status
-                                row_data = [new_id, fund_name, str(date_buy), "", cost_price, cost_price, units, "Holding"]
+                                # เตรียมข้อมูล
+                                # คอลัมน์: Fund_ID, Fund_Name, Date_Buy, Date_Sell, Cost_Price, Current_Price, Units, Status
+                                row_data = [new_id, fund_name, date_buy.strftime("%Y-%m-%d"), "", cost_price, cost_price, units, "Holding"]
+                                
                                 sheet.append_row(row_data)
                                 
                                 st.cache_data.clear()
-                                st.success("บันทึกกองทุนสำเร็จ! 🎉")
+                                st.success(f"บันทึก {fund_name} สำเร็จ! 🎉")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"เกิดข้อผิดพลาด: {e}")
+                                st.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
+                                # แสดงรายละเอียดเพิ่มเติมเพื่อให้เดาอาการได้ง่ายขึ้น
+                                st.write("Debug info:", e)
             
             # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
             with tab_update:
