@@ -119,7 +119,12 @@ def get_latest_insurance_value():
     except Exception:
         pass
     return 0.0
-
+  
+def get_pension_sheet():
+    """เชื่อมต่อกับ Worksheet ชื่อ 'Pension' ในไฟล์ MyStockData"""
+    # ตรวจสอบให้แน่ใจว่าได้มีการกำหนดตัวแปร client ไว้ก่อนแล้ว
+    return client.open('MyStockData').worksheet('Pension')
+  
 # ฟังก์ชันดึงมูลค่าสหกรณ์ล่าสุด
 def get_latest_coop_value():
     try:
@@ -5672,7 +5677,7 @@ def main():
                     total_fund_value = 0.0
             except Exception:
                 total_fund_value = 0.0
-
+        
             insurance_value = get_latest_insurance_value()
             coop_value = get_latest_coop_value()
             
@@ -5687,8 +5692,14 @@ def main():
             except Exception:
                 sso_value = 0.0
             
-            # --- มูลค่าประกันบำนาญแบบ Fix Value ---
-            pension_insurance_value = 1337703.0
+            # --- ดึงมูลค่าประกันบำนาญล่าสุด (แก้ไขจุดนี้) ---
+            try:
+                sheet_pension = client.open('MyStockData').worksheet('Pension')
+                pension_data = sheet_pension.get_all_records()
+                # ตรวจสอบชื่อคอลัมน์ให้ตรงกับไฟล์ของคุณ (ในตัวอย่างใช้ชื่อคอลัมน์ว่า 'Value')
+                pension_insurance_value = float(str(pension_data[-1]['Value']).replace(',', '')) if pension_data else 0.0
+            except Exception:
+                pension_insurance_value = 0.0
             
             # --- ดึงยอดคงเหลือบัญชีธนาคารล่าสุด ---
             sheet_bank = get_worksheet_safely(client, 'MyStockData', 'Bank_Account')
@@ -5705,7 +5716,7 @@ def main():
                     bank_balance = float(str(bank_data[-1].get('Balance', 0)).replace(',', ''))
                 except:
                     bank_balance = 0.0
-
+        
             # ==========================================
             # 🌟 ดึงข้อมูลอสังหาริมทรัพย์
             # ==========================================
@@ -5721,7 +5732,7 @@ def main():
                         real_estate_items = sheet_re.get_all_records()
                 except:
                     pass
-
+        
             for item in real_estate_items:
                 name = str(item.get("ชื่อทรัพย์สิน", "")).lower()
                 note = str(item.get("หมายเหตุ", "")).lower()
@@ -5742,25 +5753,22 @@ def main():
                     house1_value += net_val
             
             total_real_estate = house1_value + house2_value + condo_value
-            # ==========================================
             
             # 2. มูลค่าพอร์ตหุ้นรวม + พอร์ต TFEX
             base_stock_value = total_value if 'total_value' in locals() else 0.0
-            
-            # ⭐️ ดึงค่าพอร์ต TFEX จาก session_state ที่เราฝากไว้
             tfex_portfolio_value = st.session_state.get('tfex_net_worth', 0.0)
             
             total_stock_and_tfex = base_stock_value + tfex_portfolio_value
             
-            # 3. คำนวณ Net Worth แบบไม่รวมอสังหาฯ (เปลี่ยนจาก pvd_value เป็น total_fund_value)
+            # 3. คำนวณ Net Worth แบบไม่รวมอสังหาฯ
             net_worth_excl_re = (total_stock_and_tfex + total_fund_value + insurance_value + 
                                  coop_value + sso_value + pension_insurance_value + 
                                  bank_balance + total_gold_value)
             
-            # 4. คำนวณ Net Worth รวมทั้งหมด (รวมอสังหาฯ แล้ว)
+            # 4. คำนวณ Net Worth รวมทั้งหมด
             net_worth_total = net_worth_excl_re + total_real_estate
             
-            # --- 5. แสดงผล Net Worth ทั้งสองแบบด้านบนสุด (แบ่งเป็น 2 คอลัมน์สวยงาม) ---
+            # --- 5. แสดงผล Net Worth ทั้งสองแบบด้านบนสุด ---
             col_nw1, col_nw2 = st.columns(2)
             
             with col_nw1:
@@ -5784,10 +5792,10 @@ def main():
                     """, 
                     unsafe_allow_html=True
                 )
-                        
+                    
             st.divider()
         
-            # --- 6. แสดงผลใน Metrics ย่อย (เปลี่ยน PVD เป็น กองทุนรวม) ---
+            # --- 6. แสดงผลใน Metrics ย่อย ---
             st.markdown("#### 💼 สินทรัพย์สภาพคล่องและการลงทุน")
             row1_col1, row1_col2, row1_col3, row1_col4 = st.columns(4)
             row1_col1.metric("พอร์ตหุ้น + TFEX", f"{total_stock_and_tfex:,.0f} ฿")
@@ -6002,7 +6010,49 @@ def main():
                                 st.error(f"❌ เกิดข้อผิดพลาด (อาจติด Limit API กรุณารอสักครู่): {e}")
                         else:
                             st.warning("กรุณากรอกยอดเงินให้มากกว่า 0")
-                            
+
+            with st.expander("📤 เพิ่ม/อัปเดตข้อมูลประกันบำนาญ", expanded=False):
+                with st.form("pension_upload_form"):
+                    col_p1, col_p2 = st.columns(2)
+                    with col_p1:
+                        pension_date = st.date_input("วันที่บันทึกประกันบำนาญ", value=date.today(), key="pension_date_input")
+                    with col_p2:
+                        pension_value = st.number_input(
+                            "ยอดสะสมประกันบำนาญ (บาท)", 
+                            min_value=0.0, format="%.2f", value=0.0, key="pension_value_input",
+                            help="กรอกยอดเงินสะสมประกันบำนาญ ณ วันที่บันทึก"
+                        )
+                    
+                    submitted_pension = st.form_submit_button("💾 บันทึก/อัปเดตข้อมูลประกันบำนาญ")
+                    
+                    if submitted_pension:
+                        if pension_value >= 0:
+                            try:
+                                # เรียกใช้ฟังก์ชันที่ประกาศไว้ด้านบน
+                                sheet_pension = get_pension_sheet() 
+                                
+                                date_str = pension_date.strftime("%Y-%m-%d")
+                                year_ce = pension_date.year
+                                
+                                # ดึงข้อมูลวันที่ในคอลัมน์ A เพื่อเช็คว่ามีวันนี้หรือยัง
+                                date_column = sheet_pension.col_values(1)
+                                
+                                if date_str in date_column:
+                                    row_num = date_column.index(date_str) + 1
+                                    # อัปเดตข้อมูลในบรรทัดเดิม
+                                    sheet_pension.update(f"A{row_num}:C{row_num}", [[date_str, year_ce, pension_value]])
+                                    st.success(f"✅ อัปเดตข้อมูลประกันบำนาญของวันที่ **{date_str}** เรียบร้อยแล้ว!")
+                                else:
+                                    # เพิ่มบรรทัดใหม่
+                                    sheet_pension.append_row([date_str, year_ce, pension_value])
+                                    st.success(f"✅ บันทึกข้อมูลใหม่ประกันบำนาญของวันที่ **{date_str}** เรียบร้อยแล้ว!")
+                                
+                                st.rerun()
+                            except Exception as e:
+                                st.error(f"❌ เกิดข้อผิดพลาดในการบันทึก: {e}")
+                        else:
+                            st.warning("กรุณากรอกยอดเงินให้ถูกต้อง")
+                          
             # --- ส่วนบัญชีธนาคาร (กระแสเงินสด) ---
             with st.expander("💰 บันทึก/อัปเดต บัญชีเงินฝากกระแสเงินสด", expanded=False):
                 with st.form("bank_account_form"):
