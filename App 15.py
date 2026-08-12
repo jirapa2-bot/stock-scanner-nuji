@@ -5543,19 +5543,24 @@ def main():
                             try:
                                 client = get_gsheet_client()
                                 spreadsheet_id = '1_XGlYuPx10Ed1rUYfqIp37xMc_J-1LylkHVJIoGmdDM'
-                                sheet = client.open_by_key(spreadsheet_id).worksheet('Fund_History')
                                 
-                                # ปรับปรุงการหา ID: หาค่า ID สูงสุดในคอลัมน์แรกเพื่อป้องกัน ID ซ้ำ
-                                values = sheet.col_values(1) # สมมติคอลัมน์ A คือ Fund_ID
+                                # ป้องกันปัญหาชื่อชีตมีช่องว่างแฝง
+                                spreadsheet = client.open_by_key(spreadsheet_id)
+                                sheet = spreadsheet.worksheet('Fund_History')
+                                
+                                # เช็คข้อมูลในชีตแบบปลอดภัย รองรับกรณีชีตโล่งๆ ไม่มีข้อมูลเลย
+                                try:
+                                    values = sheet.col_values(1)
+                                except:
+                                    values = []
+                                    
                                 if len(values) > 1:
-                                    # ข้าม header (แถวแรก) แล้วหาเลข max
-                                    ids = [int(i) for i in values[1:] if i.isdigit()]
+                                    ids = [int(i) for i in values[1:] if str(i).isdigit()]
                                     new_id = max(ids) + 1 if ids else 1
                                 else:
                                     new_id = 1
                                 
-                                # เตรียมข้อมูล
-                                # คอลัมน์: Fund_ID, Fund_Name, Date_Buy, Date_Sell, Cost_Price, Current_Price, Units, Status
+                                # เตรียมข้อมูลสำหรับ append
                                 row_data = [new_id, fund_name, date_buy.strftime("%Y-%m-%d"), "", cost_price, cost_price, units, "Holding"]
                                 
                                 sheet.append_row(row_data)
@@ -5564,9 +5569,7 @@ def main():
                                 st.success(f"บันทึก {fund_name} สำเร็จ! 🎉")
                                 st.rerun()
                             except Exception as e:
-                                st.error(f"เกิดข้อผิดพลาดในการบันทึกข้อมูล: {e}")
-                                # แสดงรายละเอียดเพิ่มเติมเพื่อให้เดาอาการได้ง่ายขึ้น
-                                st.write("Debug info:", e)
+                                st.error(f"เกิดข้อผิดพลาดในการเชื่อมต่อหรือบันทึกข้อมูล: {e}")
             
             # 2. Tab อัปเดตราคาปัจจุบัน หรือ ขายกองทุน
             with tab_update:
