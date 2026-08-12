@@ -5440,7 +5440,7 @@ def main():
         # ==========================================
         with wealth_tab_funds:
             st.subheader("💰 ระบบจัดการกองทุนรวม")
-
+        
             # สร้าง Tab ย่อยสำหรับการจัดการกองทุน
             tab_buy, tab_update, tab_summary = st.tabs(["➕ ซื้อกองทุนเพิ่ม", "🔄 อัปเดตราคา/ขาย", "📈 ภาพรวมพอร์ต"])
             
@@ -5450,7 +5450,8 @@ def main():
                 with st.form("form_buy_fund"):
                     col1, col2 = st.columns(2)
                     fund_name = col1.text_input("ชื่อกองทุน (เช่น SCBSET, K-Equity):")
-                    date_buy = col2.date_input("วันที่ซื้อ:", datetime.date.today())
+                    # แก้ไขจาก datetime.date.today() เป็น date.today() เพื่อป้องกัน Error
+                    date_buy = col2.date_input("วันที่ซื้อ:", date.today())
                     
                     col3, col4 = st.columns(2)
                     cost_price = col3.number_input("ราคาต้นทุนเฉลี่ยต่อหน่วย:", min_value=0.0, step=0.01, format="%.4f")
